@@ -3,3 +3,4 @@ uvicorn
 pydantic
 sqlalchemy
 psycopg2
+pydantic[email]
