@@ -7,6 +7,7 @@ class Vendor(Base):
     vendor_id = Column(Integer,primary_key=True,nullable=False)
     first_name = Column(String)
     last_name = Column(String, nullable=False)
+    gender = Column(String, nullable=False)
     house_no= Column(String(50))
     street = Column(String(100), nullable=False)
     city = Column(String, nullable=False)
