@@ -4,3 +4,4 @@ pydantic
 sqlalchemy
 psycopg2
 pydantic[email]
+bcrypt
