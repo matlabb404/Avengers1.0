@@ -5,3 +5,4 @@ sqlalchemy
 psycopg2
 pydantic[email]
 bcrypt
+python-jose[cryptography]
