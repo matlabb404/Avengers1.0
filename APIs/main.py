@@ -9,7 +9,7 @@ from app.models.customer_model import customer
 from app.config.db.postgresql import SessionLocal, engine
 
 # flush the db on every run 
-Base.metadata.drop_all(bind=engine)
+#Base.metadata.drop_all(bind=engine)
 
 
 #re-create the db
