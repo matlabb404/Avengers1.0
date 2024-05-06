@@ -6,10 +6,11 @@ from app.models.api_test_model import Test
 from app.models.account_model import User
 from app.models.vendor_model import Vendor
 from app.models.customer_model import customer
+from app.models.service_model import Add_Service
 from app.config.db.postgresql import SessionLocal, engine
 
 # flush the db on every run 
-#Base.metadata.drop_all(bind=engine)
+Base.metadata.drop_all(bind=engine)
 
 
 #re-create the db

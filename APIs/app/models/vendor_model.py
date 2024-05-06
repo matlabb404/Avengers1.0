@@ -1,11 +1,12 @@
 from app.config.db.postgresql import Base
-from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, text, Date, Enum
+import uuid
+from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, text, Date, Enum, UUID
 from app.schemas.vendor_Schema import Gender
 
 class Vendor(Base):
     __tablename__ = "Vendor"
 
-    vendor_id = Column(Integer,primary_key=True,nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     first_name = Column(String)
     last_name = Column(String, nullable=False)
     house_no= Column(String(50))
@@ -17,5 +18,5 @@ class Vendor(Base):
     gender = Column(Enum(Gender), default=Gender.Male)
     age = Column(Date)
     business_name = Column(String)
-    pictures_url = Column(String)
+    phone_no = Column(String(50))
 
