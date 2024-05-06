@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routers import apis_test_router, vendor_router,account_router, customer_router
+from app.routers import apis_test_router, vendor_router,account_router, customer_router, service_router
 from app.config.db.postgresql import Base, engine
 from sqlalchemy.orm import Session
 from app.models.api_test_model import Test
@@ -25,3 +25,4 @@ app.include_router(apis_test_router.router)
 app.include_router(account_router.router)
 app.include_router (vendor_router.router)
 app.include_router (customer_router.router)
+app.include_router(service_router.router)
