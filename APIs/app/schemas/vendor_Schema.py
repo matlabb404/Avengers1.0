@@ -1,4 +1,5 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, UUID4, HttpUrl
+from uuid import UUID
 from datetime import date
 from enum import Enum
 
@@ -19,4 +20,9 @@ class VendorCreateBase(BaseModel):
     gender: Gender
     age: date
     business_name: str 
-    pictures_url : str 
+ 
+
+class VendorDetailsCreateBase(BaseModel):
+    description : str
+    picture_url : str
+    review : str

@@ -1,10 +1,11 @@
 from app.config.db.postgresql import Base
-from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, text, Date,DateTime
+from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, text, Date,DateTime, UUID
+import uuid
 
 class customer(Base):
     __tablename__ = "customer"
 
-    customer_id = Column(Integer,primary_key=True,nullable=False)
+    customer_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(25))
     address_1 = Column(String(100), nullable=False)
     address_2 = Column(String(100))

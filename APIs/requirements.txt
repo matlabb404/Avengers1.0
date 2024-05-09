@@ -6,3 +6,7 @@ psycopg2
 pydantic[email]
 bcrypt
 python-jose[cryptography]
+passlib
+python-multipart
+redis
+hashlib
