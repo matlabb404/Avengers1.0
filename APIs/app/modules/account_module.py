@@ -21,7 +21,16 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="Account/token")
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 
 
 def register_user(db:Session, account:AccountCreateBase):
@@ -65,6 +74,28 @@ def create_access_token(email:str, expires_delta: Union[timedelta, None]= None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email : str = payload.get("sub")
+      #  print("Extracted email from token:", email)  used to debug 
+        if email is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, 
+                                detail="Could not validate user")
+        token_data = TokenData(email=email)
+    except JWTError as e:
+      #  print("JWT decoding error:", e) debug code
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="could not validate user.")
+    
+    db = SessionLocal()
+    user = db.query(User).filter(User.email == email).first() 
+    db.close()    
+    if user is None:
+        #   print("User not found in database")  was used to debug 
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    print("current_user:",  user)
+    return user
 
 def login_for_access_token(db: Session, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     user= user_login(form_data.username, form_data.password, db)
@@ -72,21 +103,10 @@ def login_for_access_token(db: Session, form_data: Annotated[OAuth2PasswordReque
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail = "Incorrect Username or password",
-            headers= {"WWW-Authenticate": "Bearere"}
+            headers= {"WWW-Authenticate": "Bearer"}
         )
     access_token_expires= timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token( user.email, expires_delta=access_token_expires)
-    return {'access_token' : access_token, 'token_type' : 'bearer'}
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
-async def get_current_user(token:Annotated[str, Depends(oauth2_scheme)]):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email : str = payload.get("sub")
-        if email is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, 
-                                detail="Could not validate user")
-        return email
-    except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="could not validate user.")

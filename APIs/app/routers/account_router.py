@@ -14,7 +14,7 @@ from pydantic import EmailStr
 router = APIRouter(prefix="/Account")
 
 
-user_dependency = Annotated[dict, Depends(get_current_user)]
+user_dependency = Annotated[str, Depends(get_current_user)]
 
 
 def get_db():
@@ -35,12 +35,11 @@ async def login_user(email, password, db:Session=Depends(get_db)):
     responce = register_module.user_login(email=email, password=password, db=db)
     return responce
 
-@router.post("/token", tags=["Account"])
+@router.post("/token", tags=["Account"], response_model=account_schema.Token)
 async def get_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db:Session= Depends(get_db)):
     token = register_module.login_for_access_token(form_data=form_data, db=db)
     return token
 
-@router.get("/example", tags=["Account"])
-async def example(email: str = Depends(get_current_user)):
-    return {"email" : email}
-
+@router.get("/welcome", tags=["Account"])
+async def welcome_user(current_user : User = Depends(get_current_user)):
+    return {"message": f"Welcome, {current_user.email}, you are authorized"}

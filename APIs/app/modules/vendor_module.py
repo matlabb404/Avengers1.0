@@ -1,5 +1,4 @@
 import requests
-import aioredis
 from app.models import vendor_model, api_test_model
 from sqlalchemy.orm import Session
 import json

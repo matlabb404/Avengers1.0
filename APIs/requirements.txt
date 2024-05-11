@@ -10,3 +10,4 @@ passlib
 python-multipart
 redis
 hashlib
+aioredis
