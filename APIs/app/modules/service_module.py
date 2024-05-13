@@ -9,4 +9,4 @@ def add_s(db:Session, service:services_schema.ServicesDropDownOption):
     db.add(db_service)
     db.commit()
     db.refresh(db_service)
-    return {"Service Added Successfully" }
+    return {"Service Added Successfully" :db_service}

@@ -8,6 +8,12 @@ bcrypt
 python-jose[cryptography]
 passlib
 python-multipart
+<<<<<<< Updated upstream
 redis
 hashlib
 aioredis
+=======
+aioredis
+redis 
+requests
+>>>>>>> Stashed changes

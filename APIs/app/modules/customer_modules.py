@@ -15,10 +15,8 @@ def add_customer(db:Session,  customer:customer_schema.CustomerCreateBase ):
 
 
 def update_customer_id(db: Session, customer_id: int, update_data: dict):
-    # Retrieve the customer from the database
     db_customer = db.query(customer_model.customer).filter(customer_model.customer.customer_id == customer_id).first()
     if db_customer:
-        # Update the customer data
         for key, value in update_data.dict().items():  
             setattr(db_customer, key, value)
         db.commit()
