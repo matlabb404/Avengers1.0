@@ -8,6 +8,7 @@ class Vendor(Base):
     __tablename__ = "Vendor"
 
     vendor_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    vendor_email = Column(String)
     first_name = Column(String)
     last_name = Column(String, nullable=False)
     house_no= Column(String(50))

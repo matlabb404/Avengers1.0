@@ -1,5 +1,1 @@
-<<<<<<< Updated upstream
-vendor:2d6185797c80ef04f6309c743a3e16a2
-=======
-vendor:65724a711c8c30e5b4175916cd5bc2fc
->>>>>>> Stashed changes
+vendor:83a06aa3ee513f67dd6686979de3bc0b

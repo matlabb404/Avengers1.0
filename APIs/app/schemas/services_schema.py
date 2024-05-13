@@ -2,7 +2,7 @@ from enum import Enum
 from pydantic import BaseModel
 
 class ServicesDropDownOption(str, Enum):
-    service1 = "Hair Dye"
+    hairdye = "Hair Dye"
     service2 = "Hair Styling"
     service3 = "Hair Trimming"
     service4 = "Hair Cutting"

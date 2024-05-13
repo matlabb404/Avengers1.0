@@ -3,12 +3,13 @@ from uuid import UUID
 from typing import Annotated
 import app.modules.vendor_module as vendor_mdl
 import app.models.account_model as acct_mdl
+import app.modules.account_module as acct_module
 from app.schemas import vendor_Schema
 from app.config.db.postgresql import SessionLocal
 from sqlalchemy.orm import Session
 from app.schemas.vendor_Schema import Gender
 from datetime import timedelta
-import redis,hashlib,secrets,string
+import redis ,hashlib,secrets,string
 
 router = APIRouter(prefix="/Vendor")
 
@@ -43,13 +44,14 @@ def get_db():
         db.close()
 
 @router.post("/Add_vendor", tags=["Vendor"])
-async def add_vendor( vendor: vendor_Schema.VendorCreateBase, db:Session=Depends(get_db)):
+async def add_vendor( vendor: vendor_Schema.VendorCreateBase, db:Session=Depends(get_db), current_user : acct_mdl.User = Depends(acct_module.get_current_user)):
+    email = current_user.email
     cache_key = save_secure_string(f"vendor:{hashlib.md5(generate_secure_string().encode()).hexdigest()}")
     cached_vendor_id = redis_client.get(cache_key)
     if cached_vendor_id:
         return str(cached_vendor_id)
     
-    responce = vendor_mdl.add_vendor(db=db, vendor=vendor)
+    responce = vendor_mdl.add_vendor(db=db, vendor=vendor, vendor_emaail = email)
 
     redis_client.setex(cache_key, timedelta(hours=24), str(responce))
 

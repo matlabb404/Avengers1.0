@@ -9,9 +9,9 @@ from sqlalchemy.dialects import postgresql
 from uuid import UUID
 
 
-def add_vendor(db:Session, vendor:vendor_Schema.VendorCreateBase ):
+def add_vendor(db:Session, vendor:vendor_Schema.VendorCreateBase, vendor_emaail : str ):
 
-    db_vendor = vendor_model.Vendor(**vendor.dict())
+    db_vendor = vendor_model.Vendor(**vendor.dict(), vendor_email = vendor_emaail)
     db.add(db_vendor)
     db.commit()
     db.refresh(db_vendor)
