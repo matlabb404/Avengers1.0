@@ -43,3 +43,13 @@ async def get_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], 
 @router.get("/welcome", tags=["Account"])
 async def welcome_user(current_user : User = Depends(get_current_user)):
     return {"message": f"Welcome, {current_user.email}, you are authorized"}
+
+
+
+
+
+
+
+
+
+
