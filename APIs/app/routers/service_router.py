@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Annotated
 import app.modules.big_services_module as big_service_mdl
 from app.schemas import big_services_schema
@@ -105,3 +105,9 @@ async def delete_service(service_id: str, db: Session = Depends(get_db)):
         return {"message": "Service deleted successfully"}
     else:
         return {"message": "Service not found"}
+    
+times = [f"{hour:02}:{minute:02}" for hour in range(24) for minute in (0, 30)]
+
+@router.get("/select_time", tags=["Big Service"])
+async def select_time ( time : str = Query(..., description="Select a time", enum=times)):
+    return {"message" : f"You have seletced this time : {time}"}
