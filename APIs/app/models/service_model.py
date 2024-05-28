@@ -24,3 +24,7 @@ class Service(Base):
    
    # Define relationships
    add_service = relationship("Add_Service",uselist=False, back_populates="service_relation")
+
+   #booking relationship
+   booking = relationship("Booking",uselist=False, back_populates="service")
+
