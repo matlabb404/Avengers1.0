@@ -12,6 +12,7 @@ class Add_Service(Base):
    service_name = Column(Enum(ServicesDropDownOption))
    
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
    service_relation = relationship("Service", back_populates="add_service", uselist=False)
 
 
@@ -33,6 +34,11 @@ class Service(Base):
 
 >>>>>>> Stashed changes
 
+=======
+   service = relationship("Service", back_populates="service", uselist=False)
+
+
+>>>>>>> Stashed changes
 class Service(Base):
    __tablename__ = "services"
 
