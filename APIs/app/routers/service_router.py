@@ -106,8 +106,3 @@ async def delete_service(service_id: str, db: Session = Depends(get_db)):
     else:
         return {"message": "Service not found"}
     
-times = [f"{hour:02}:{minute:02}" for hour in range(24) for minute in (0, 30)]
-
-@router.get("/select_time", tags=["Big Service"])
-async def select_time ( time : str = Query(..., description="Select a time", enum=times)):
-    return {"message" : f"You have seletced this time : {time}"}
