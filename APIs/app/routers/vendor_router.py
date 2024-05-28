@@ -24,17 +24,36 @@ def generate_secure_string(length=16):
     random_string = ''.join(secrets.choice(letters) for _ in range(length))
     return random_string
 
-def get_secure_string():
-    return open('cached_keys.txt', 'r').readlines()[-1].strip()
+def get_secure_string_vendor():
+    with open('cached_keys.txt', 'r') as file:
+        lines = file.readlines()
+    for line in lines:
+        if "vendor" in line:
+            return line.strip()  # Return the line without leading/trailing whitespace
+    return None
 
-def save_secure_string(text):
-    open('cached_keys.txt', 'w').write('')
-    open('cached_keys.txt', 'a').write(text+'\n')
-    return get_secure_string()
+def save_secure_string_vendor(text):
+    try:
+        with open('cached_keys.txt', 'r') as file:
+            lines = file.readlines()
+    except FileNotFoundError:
+        lines = []
+
+    with open('cached_keys.txt', 'w') as file:
+        file.write('')
+        for line in lines:
+            if "vendor" in line:
+                file.write(text + '\n')
+            else:
+                file.write(line)
+        if not any("vendor" in line for line in lines):
+            file.write(text + '\n')
+    return get_secure_string_vendor()
+
 
 # Hash the key using hashlib for a more efficient cache key
 
-cache_key = get_secure_string()
+cache_key = get_secure_string_vendor()
 
 def get_db():
     db = SessionLocal()
@@ -46,7 +65,7 @@ def get_db():
 @router.post("/Add_vendor", tags=["Vendor"])
 async def add_vendor( vendor: vendor_Schema.VendorCreateBase, db:Session=Depends(get_db), current_user : acct_mdl.User = Depends(acct_module.get_current_user)):
     email = current_user.email
-    cache_key = save_secure_string(f"vendor:{hashlib.md5(generate_secure_string().encode()).hexdigest()}")
+    cache_key = save_secure_string_vendor(f"vendor:{hashlib.md5(generate_secure_string().encode()).hexdigest()}")
     cached_vendor_id = redis_client.get(cache_key)
     if cached_vendor_id:
         return str(cached_vendor_id)
@@ -60,7 +79,7 @@ async def add_vendor( vendor: vendor_Schema.VendorCreateBase, db:Session=Depends
 
 @router.post("/Vendor_Details", tags=["Vendor"])
 async def vendor_details( vendor_detials_request: vendor_Schema.VendorDetailsCreateBase, db:Session=Depends(get_db)):
-    cached_vendor_id = redis_client.get(get_secure_string()).decode('utf-8')
+    cached_vendor_id = redis_client.get(get_secure_string_vendor()).decode('utf-8')
     if cached_vendor_id:
         print("This was returned from cache as the id",str(cached_vendor_id))
     response = vendor_mdl.add_vendor_details(db=db, vendor_id=str(cached_vendor_id) ,vendor_details_request=vendor_detials_request)

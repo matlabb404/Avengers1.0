@@ -6,8 +6,8 @@ from typing import Optional
 
 
 class ServiceSchema(BaseModel):
-    id: UUID
-    vendor_id: UUID # Foreign key to the vendors table
+    #id: UUID
+    #vendor_id: UUID # Foreign key to the vendors table
     price: int
     add_service_id: UUID  # Foreign key to the add_services table
     

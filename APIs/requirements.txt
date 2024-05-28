@@ -7,15 +7,9 @@ pydantic[email]
 bcrypt
 python-jose[cryptography]
 passlib
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 python-multipart
 redis
 hashlib
 aioredis
-=======
 python-multipart
->>>>>>> Stashed changes
-=======
 python-multipart
->>>>>>> Stashed changes

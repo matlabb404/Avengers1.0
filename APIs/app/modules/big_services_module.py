@@ -3,13 +3,19 @@ from app.schemas import big_services_schema
 from app.config.db.postgresql import SessionLocal
 from sqlalchemy.orm import Session
 from app.schemas.big_services_schema import ServiceUpdate
+from app.models.vendor_model import Vendor
+from fastapi import APIRouter, Depends, HTTPException
+from app.models.service_model import Service
 
 
-def add_service(db: Session, big_service: big_services_schema.ServiceSchema):
-    new_service = service_model.Service(
-        add_vendor_id=big_service.vendor_id,
+def add_service(db: Session, big_service: big_services_schema.ServiceSchema, add_vendor_id: str):
+    #if not db.query(Vendor).filter(Vendor.vendor_id == add_vendor_id).first():
+    #    raise HTTPException(status_code=404, detail="Vendor not found")
+    new_service = Service(
+        add_vendor_id=add_vendor_id,
         price=big_service.price,
-        add_service_id=big_service.add_service_id)
+        add_service_id=big_service.add_service_id
+    )
     db.add(new_service)
     db.commit()
     db.refresh(new_service)
@@ -39,7 +45,3 @@ def delete_service(db: Session, service_id: str):
         return True
     else:
         return False
-
-
-    
-
