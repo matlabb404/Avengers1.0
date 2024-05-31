@@ -11,6 +11,3 @@ class User(Base):
     password = Column(String, nullable=False)
 
 
-    #relationship with booking
-
-    users = relationship("Booking", back_populates = "booking_user")

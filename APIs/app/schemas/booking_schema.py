@@ -28,7 +28,6 @@ all_days(today.year)
 class BookingSchema(BaseModel):
     booking_id: UUID
     service_id: UUID
-    customer_id: UUID
     notes: str
     #time_date: datetime.datetime
 
@@ -36,4 +35,4 @@ class BookingSchema(BaseModel):
     #for i in range(len(dates_to_use)):
     #    dates_to_use[i][:12] = dates_to_use[i]
 
-BookingDates = Enum('BookingDates', {f'DATE_{i}': dates_to_use[i] for i in range(len(dates_to_use))})
+BookingDates = Enum('BookingDates', {dates_to_use[i]: dates_to_use[i] for i in range(len(dates_to_use))})

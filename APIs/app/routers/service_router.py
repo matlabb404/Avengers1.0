@@ -43,7 +43,7 @@ def get_secure_string_service():
             lines = file.readlines()
         for line in lines:
             if "service" in line:
-                return line.strip()  # Return the line without leading/trailing whitespace
+                return line.strip() 
     except FileNotFoundError:
         return None
     return None

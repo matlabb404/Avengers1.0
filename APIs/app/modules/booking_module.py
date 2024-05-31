@@ -9,8 +9,8 @@ from uuid import UUID
 from datetime import datetime
 
 
-def add_booking(db:Session, book:booking_schema.BookingSchema, timedate: datetime):
-    db_booking = booking_model.Booking(booking_id = book.booking_id,time_date = timedate, service_id = book.service_id, customer_id = book.customer_id, notes = book.notes)
+def add_booking(db:Session, book:booking_schema.BookingSchema, timedate: datetime, customer_id : str):
+    db_booking = booking_model.Booking(booking_id = book.booking_id,time_date = timedate, service_id = book.service_id, customer_id = customer_id, notes = book.notes)
     db.add(db_booking)
     db.commit()
     db.refresh(db_booking)

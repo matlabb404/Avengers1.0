@@ -1,5 +1,6 @@
 from app.config.db.postgresql import Base
 from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, text, Date,DateTime, UUID
+from sqlalchemy.orm import relationship
 import uuid
 
 class customer(Base):
@@ -15,3 +16,6 @@ class customer(Base):
     date_of_birth = Column(Date)
     last_edited = Column(DateTime,nullable=False)
 
+#relationship with booking
+
+    customers = relationship("Booking", back_populates = "booking_user")

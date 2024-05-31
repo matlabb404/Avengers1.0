@@ -68,7 +68,7 @@ async def add_vendor( vendor: vendor_Schema.VendorCreateBase, db:Session=Depends
     cache_key = save_secure_string_vendor(f"vendor:{hashlib.md5(generate_secure_string().encode()).hexdigest()}")
     cached_vendor_id = redis_client.get(cache_key)
     if cached_vendor_id:
-        return str(cached_vendor_id)
+        print(str(cached_vendor_id))
     
     responce = vendor_mdl.add_vendor(db=db, vendor=vendor, vendor_emaail = email)
 

@@ -5,11 +5,51 @@ from app.schemas import customer_schema
 from app.models.customer_model import customer
 from app.config.db.postgresql import SessionLocal
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime,timedelta
 from typing import Any, Dict
+import redis,hashlib,secrets,string
 
 
 router = APIRouter(prefix="/customer")
+
+redis_client = redis.Redis(host='localhost', port=6379,db=0)
+# Send a ping request and check the response 
+print("Response:", redis_client.ping())
+
+
+#generate key
+def generate_secure_string(length=16):
+    letters = string.ascii_letters
+    random_string = ''.join(secrets.choice(letters) for _ in range(length))
+    return random_string
+
+
+def get_secure_string_customer():
+    with open('cached_keys.txt', 'r') as file:
+        lines = file.readlines()
+    for line in lines:
+        if "customer" in line:
+            return line.strip()  # Return the line without leading/trailing whitespace
+    return None
+
+def save_secure_string_customer(text):
+    try:
+        with open('cached_keys.txt', 'r') as file:
+            lines = file.readlines()
+    except FileNotFoundError:
+        lines = []
+
+    with open('cached_keys.txt', 'w') as file:
+        file.write('')
+        for line in lines:
+            if "customer" in line:
+                file.write(text + '\n')
+            else:
+                file.write(line)
+        if not any("customer" in line for line in lines):
+            file.write(text + '\n')
+    return get_secure_string_customer()
+
 
 
 def get_db():
@@ -21,9 +61,12 @@ def get_db():
 
 @router.post("/Add_customer", tags=["customer"])
 async def add_customer(customer: customer_schema.CustomerCreateBase, db:Session=Depends(get_db)):
-    # Add today's date to the 'last_edited' field
-    customer.last_edited = datetime.now()
+    customer.last_edited = datetime.now() # Add today's date to the 'last_edited' field
+    save_secure_string_customer(f"customer:{hashlib.md5(generate_secure_string().encode()).hexdigest()}")
+    if redis_client.get(get_secure_string_customer()):
+        print(str(redis_client.get(get_secure_string_customer())))
     response = customer_modules.add_customer(db=db, customer=customer)
+    redis_client.setex(get_secure_string_customer(), timedelta(hours=24), str(response.customer_id))
     return response
 
 
