@@ -9,7 +9,7 @@ class Booking(Base):
 
     booking_id = Column(UUID(as_uuid= True), primary_key = True, default=uuid.uuid4)
     service_id = Column(UUID(as_uuid=True), ForeignKey('services.id'), nullable=False)
-    customer_id = Column(UUID(as_uuid= True), ForeignKey('customer.customer_id'), nullable = False)
+    user_id = Column(UUID(as_uuid= True), ForeignKey('users.id'), nullable = False)
     time_date = Column(DateTime)
     notes = Column(String(300))
 
@@ -18,4 +18,4 @@ class Booking(Base):
     service = relationship("Service", back_populates="booking")
 
     #relationship with user table
-    booking_user = relationship("customer",  back_populates="customers")
+    booking_user = relationship("User",  back_populates="users_booking")

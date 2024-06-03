@@ -2,10 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.modules import customer_modules
 from app.models import customer_model
 from app.schemas import customer_schema
+from app.modules.account_module import get_current_user
 from app.models.customer_model import customer
 from app.config.db.postgresql import SessionLocal
 from sqlalchemy.orm import Session
 from datetime import datetime,timedelta
+from app.models.account_model import User
 from typing import Any, Dict
 import redis,hashlib,secrets,string
 
@@ -60,12 +62,13 @@ def get_db():
         db.close()
 
 @router.post("/Add_customer", tags=["customer"])
-async def add_customer(customer: customer_schema.CustomerCreateBase, db:Session=Depends(get_db)):
+async def add_customer(customer: customer_schema.CustomerCreateBase, db:Session=Depends(get_db),  current_user : User= Depends(get_current_user)):
+    user_ida = current_user.id
     customer.last_edited = datetime.now() # Add today's date to the 'last_edited' field
     save_secure_string_customer(f"customer:{hashlib.md5(generate_secure_string().encode()).hexdigest()}")
     if redis_client.get(get_secure_string_customer()):
         print(str(redis_client.get(get_secure_string_customer())))
-    response = customer_modules.add_customer(db=db, customer=customer)
+    response = customer_modules.add_customer(db=db, customer=customer, user_id_=use)
     redis_client.setex(get_secure_string_customer(), timedelta(hours=24), str(response.customer_id))
     return response
 

@@ -11,7 +11,7 @@ from app.models.booking_model import Booking
 from app.config.db.postgresql import SessionLocal, engine
 
 # flush the db on every run 
-#Base.metadata.drop_all(bind=engine)
+Base.metadata.drop_all(bind=engine)
 
 
 #re-create the db
