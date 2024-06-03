@@ -9,7 +9,6 @@ from app.schemas import services_schema
 from app.config.db.postgresql import SessionLocal
 from sqlalchemy.orm import Session
 import redis,hashlib,secrets,string
-import uuid
 from datetime import timedelta
 
 
@@ -165,3 +164,8 @@ async def delete_service(service_id: str, db: Session = Depends(get_db)):
         return {"message": "Service deleted successfully"}
     else:
         return {"message": "Service not found"}
+    
+@router.get("/get_all_service_by_vendor/{vendor_id}", tags=["Big Service"])
+async def get_all_service_by_vendor(vendor_id: str, db:Session= Depends(get_db)):
+    service = big_service_mdl.get_service_by_vendor(db=db, vendor_id=vendor_id)
+    return service

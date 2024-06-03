@@ -6,7 +6,7 @@ from app.schemas.big_services_schema import ServiceUpdate
 from app.models.vendor_model import Vendor
 from fastapi import APIRouter, Depends, HTTPException
 from app.models.service_model import Service
-
+import uuid
 
 def add_service(db: Session, big_service: big_services_schema.ServiceSchema, add_vendor_id: str):
     #if not db.query(Vendor).filter(Vendor.vendor_id == add_vendor_id).first():
@@ -45,3 +45,8 @@ def delete_service(db: Session, service_id: str):
         return True
     else:
         return False
+    
+
+def get_service_by_vendor(db:Session, vendor_id : str):
+    db_servce = db.query(service_model.Service).filter(service_model.Service.add_vendor_id == vendor_id).all()
+    return db_servce
