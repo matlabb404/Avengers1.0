@@ -16,7 +16,7 @@ def add_customer(db:Session,customer:customer_schema.CustomerCreateBase, user_id
     return db_customer
 
 
-def update_customer_id(db: Session, customer_id: uuid, update_data: dict):
+def update_customer_id(db: Session, customer_id: str, update_data: dict):
     db_customer = db.query(customer_model.customer).filter(customer_model.customer.customer_id == customer_id).first()
     if db_customer:
         for key, value in update_data.dict().items():  
@@ -28,7 +28,7 @@ def update_customer_id(db: Session, customer_id: uuid, update_data: dict):
         return None  # Customer with the given ID not found
 
 
-def delete_customer_by_id(db: Session, customer_id: int):
+def delete_customer_by_id(db: Session, customer_id: str):
     customer = db.query(customer_model.customer).filter(customer_model.customer.customer_id == customer_id).first()
     if customer:
         db.delete(customer)

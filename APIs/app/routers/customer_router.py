@@ -10,6 +10,7 @@ from datetime import datetime,timedelta
 from app.models.account_model import User
 from typing import Any, Dict
 import redis,hashlib,secrets,string
+import uuid
 
 
 router = APIRouter(prefix="/customer")
@@ -68,13 +69,13 @@ async def add_customer(customer: customer_schema.CustomerCreateBase, db:Session=
     save_secure_string_customer(f"customer:{hashlib.md5(generate_secure_string().encode()).hexdigest()}")
     if redis_client.get(get_secure_string_customer()):
         print(str(redis_client.get(get_secure_string_customer())))
-    response = customer_modules.add_customer(db=db, customer=customer, user_id_=use)
+    response = customer_modules.add_customer(db=db, customer=customer, user_id_=user_ida)
     redis_client.setex(get_secure_string_customer(), timedelta(hours=24), str(response.customer_id))
     return response
 
 
 @router.put("/update_customer/{customer_id}", tags=["customer"])
-async def update_customer(customer_id: int, update_data: customer_schema.CustomerUpdate, db: Session = Depends(get_db)):
+async def update_customer(customer_id: str, update_data: customer_schema.CustomerUpdate, db: Session = Depends(get_db)):
     # Retrieve existing customer data
     existing_customer = db.query(customer).filter(customer.customer_id == customer_id).first()
     if existing_customer is None:
@@ -89,7 +90,7 @@ async def update_customer(customer_id: int, update_data: customer_schema.Custome
 
 
 @router.delete("/delete_customer/{customer_id}", tags=["customer"])
-async def delete_customer(customer_id: int, db: Session = Depends(get_db)):
+async def delete_customer(customer_id: str, db: Session = Depends(get_db)):
     deleted = customer_modules.delete_customer_by_id(db, customer_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Customer not found")
