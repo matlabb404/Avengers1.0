@@ -26,7 +26,6 @@ today = datetime.date.today()
 all_days(today.year)
 
 class BookingSchema(BaseModel):
-    booking_id: UUID
     service_id: UUID
     notes: str
     #time_date: datetime.datetime

@@ -6,6 +6,8 @@ from app.schemas import booking_schema
 from app.config.db.postgresql import SessionLocal
 from sqlalchemy.orm import Session
 from app.schemas.booking_schema import dates_to_use
+from app.models.account_model import User
+from app.modules.account_module import get_current_user
 import datetime
 from datetime import datetime as dtme
 import redis ,hashlib,secrets,string
@@ -38,11 +40,11 @@ def get_secure_string_customer():
 times = [f"{hour:02}:{minute:02}" for hour in range(24) for minute in (0, 30)]
 
 @router.post("/Add_booking", tags=["Booking"])
-async def add_booking( book_date_dropdown: booking_schema.BookingDates, book: booking_schema.BookingSchema, db:Session=Depends(get_db),  time : str = Query(..., description="Select a time", enum=times) ):
+async def add_booking( book_date_dropdown: booking_schema.BookingDates, book: booking_schema.BookingSchema, db:Session=Depends(get_db),  time : str = Query(..., description="Select a time", enum=times),current_user : User = Depends(get_current_user) ):
     # Combine date and time
     combined_datetime_str = f"{str(book_date_dropdown).split(',', 1)[1]} {str(time)}" 
     customer_id = redis_client.get(get_secure_string_customer()).decode('utf-8')
     # Parse the combined string into a datetime object
     timedate = dtme.strptime(combined_datetime_str,"%Y-%m-%d %H:%M")
-    responce = booking_mdl.add_booking(db=db, book=book, timedate=timedate, customer_id = str(customer_id))
+    responce = booking_mdl.add_booking(db=db, book=book, timedate=timedate,  user_id_request=current_user.id)
     return responce
