@@ -35,3 +35,12 @@ class BookingSchema(BaseModel):
     #    dates_to_use[i][:12] = dates_to_use[i]
 
 BookingDates = Enum('BookingDates', {dates_to_use[i]: dates_to_use[i] for i in range(len(dates_to_use))})
+
+
+class BookingRespone(BaseModel):
+    business_name: str 
+    service_name : str 
+    price : int
+    time_date : str
+    notes: str 
+
