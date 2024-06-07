@@ -55,3 +55,13 @@ def get_all_booking_by_user(db:Session, user_id: int):
         booking_information_list.append(booking_information)
 
     return booking_information_list
+
+def delete_booking(db:Session, user_id_request:str, booking_id_request : str):
+    db_query = db.query(Booking).filter(Booking.booking_id == booking_id_request, Booking.user_id == user_id_request).first()
+    print(db_query)
+    if db_query:
+        db.delete(db_query)
+        db.commit()
+        return "Booking deleted Successfully"
+    else:
+        return "Booking Not Found. Please Try Again"

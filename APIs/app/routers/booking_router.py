@@ -53,3 +53,9 @@ async def add_booking( book_date_dropdown: booking_schema.BookingDates, book: bo
 async def get_booking_by_user(db:Session= Depends(get_db), current_user : User = Depends(get_current_user)):
     responce = booking_mdl.get_all_booking_by_user(db=db, user_id=current_user.id)
     return responce
+
+
+@router.delete("/delete_booking", tags=["Booking"])
+async def delete_booking_by_user(db:Session=Depends(get_db), booking_id_request = str,  current_user:User = Depends(get_current_user)):
+    responce = booking_mdl.delete_booking(db=db, booking_id_request=booking_id_request, user_id_request=current_user.id )
+    return responce
