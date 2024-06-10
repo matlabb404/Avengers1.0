@@ -16,7 +16,35 @@ def add_vendor(db:Session, vendor:vendor_Schema.VendorCreateBase, vendor_emaail 
     db.commit()
     db.refresh(db_vendor)
     return db_vendor.vendor_id
-    #return db_vendor.vendor_id.compile(dialect=postgresql.dialect())
+
+def vendor_update(db:Session, vendor_id: UUID, vendor_update:vendor_Schema.VendorCreateBase):
+    db_vendor = db.query(vendor_model.Vendor).filter(vendor_model.Vendor.vendor_id == vendor_id).first()
+    if db_vendor:
+        for key, value in vendor_update.dict().items():  
+            setattr(db_vendor, key, value)
+        db.commit()
+        db.refresh(db_vendor)
+        return db_vendor
+    else:
+        return 'Not_Found'
+    
+def vendor_delete(db:Session, vendor_id: UUID):
+    db_vendor = db.query(vendor_model.Vendor).filter(vendor_model.Vendor.vendor_id == vendor_id).first()
+    if db_vendor:
+        db.delete(db_vendor)
+        db.commit()
+        return True
+    else:
+        return False
+    
+def vendor_details_delete(db:Session, vendor_id_details: UUID):
+    db_vendor = db.query(vendor_model.Vendor_Details).filter(vendor_model.Vendor_Details.id == vendor_id_details).first()
+    if db_vendor:
+        db.delete(db_vendor)
+        db.commit()
+        return True
+    else:
+        return False
 
 
 def gett(name: str):

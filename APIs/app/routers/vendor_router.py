@@ -77,14 +77,34 @@ async def add_vendor( vendor: vendor_Schema.VendorCreateBase, db:Session=Depends
     return redis_client.get(cache_key)
 
 
-@router.post("/Vendor_Details", tags=["Vendor"])
-async def vendor_details( vendor_detials_request: vendor_Schema.VendorDetailsCreateBase, db:Session=Depends(get_db)):
+@router.post("/Vendor_Details/{vendor_id}", tags=["Vendor"])
+async def vendor_details( vendor_detials_request: vendor_Schema.VendorDetailsCreateBase, db:Session=Depends(get_db), current_user : acct_mdl.User = Depends(acct_module.get_current_user)):
     cached_vendor_id = redis_client.get(get_secure_string_vendor()).decode('utf-8')
     if cached_vendor_id:
         print("This was returned from cache as the id",str(cached_vendor_id))
     response = vendor_mdl.add_vendor_details(db=db, vendor_id=str(cached_vendor_id) ,vendor_details_request=vendor_detials_request)
     return response
 
+@router.put("/Update_Vendor/{vendor_id}", tags=["Vendor"])
+async def update_vendor(vendor_update: vendor_Schema.VendorCreateBase, db:Session=Depends(get_db), current_user : acct_mdl.User = Depends(acct_module.get_current_user)):
+    cached_vendor_id = redis_client.get(get_secure_string_vendor()).decode('utf-8')
+    if cached_vendor_id:
+        print("This was returned from cache as the id",str(cached_vendor_id))
+    response = vendor_mdl.vendor_update(db=db, vendor_id=str(cached_vendor_id) ,vendor_update=vendor_update)
+    return response
+
+@router.delete("/Delete_Vendor/{vendor_id}", tags=["Vendor"])
+async def delete_vendor(db:Session=Depends(get_db), current_user : acct_mdl.User = Depends(acct_module.get_current_user)):
+    cached_vendor_id = redis_client.get(get_secure_string_vendor()).decode('utf-8')
+    if cached_vendor_id:
+        print("This was returned from cache as the id",str(cached_vendor_id))
+    response = vendor_mdl.vendor_delete(db=db, vendor_id=str(cached_vendor_id))
+    return response
+
+@router.delete("/Delete_Vendor_details/{vendor_id}/{venor_details_id}", tags=["Vendor"])
+async def delete_vendor(vendor_id_details: UUID , db:Session=Depends(get_db),current_user : acct_mdl.User = Depends(acct_module.get_current_user)):
+    response = vendor_mdl.vendor_delete(db=db, vendor_id=vendor_id_details)
+    return response
 
 @router.get("/vendorid", tags=["Vendor"])
 async def id(name:str):
