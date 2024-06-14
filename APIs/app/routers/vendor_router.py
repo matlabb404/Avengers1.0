@@ -120,3 +120,13 @@ async def get_all_vendors():
 async def get_gender_vendors(gender:Gender):
     gender_vendors = vendor_mdl.get_gender_vendors(gender)
     return gender_vendors
+
+
+##### For scheduling
+@router.post("/Scheduling/{vendor_id}", tags=["Vendor"])
+async def vendor_details( schedulebase: vendor_Schema.Scheduling, db:Session=Depends(get_db), current_user : acct_mdl.User = Depends(acct_module.get_current_user)):
+    cached_vendor_id = redis_client.get(get_secure_string_vendor()).decode('utf-8')
+    if cached_vendor_id:
+        print("This was returned from cache as the id",str(cached_vendor_id))
+    response = vendor_mdl.add_vendor_details(db=db, schedule_vendor_id=str(cached_vendor_id) ,schedulebase=schedulebase)
+    return response

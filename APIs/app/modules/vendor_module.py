@@ -71,3 +71,13 @@ def get_gender_vendors(gender):
     session_get = SessionLocal()
     all_vendors = session_get.query(Vendor).filter(Vendor.gender == gender).all()
     return all_vendors
+
+### FOR SCHEDULING NOW
+def __schedule(db:Session, schedule_vendor_id: UUID, schedulebase:vendor_Schema.Scheduling):
+    scheduling = vendor_model.Scheduling_(schedule_vendor_id = schedule_vendor_id,
+                                       days = schedulebase.days,
+                                       exceptions = schedulebase.exceptions)
+    db.add(scheduling)
+    db.commit()
+    db.refresh(scheduling)
+    return scheduling

@@ -35,3 +35,12 @@ class Vendor_Details(Base):
     review = Column(String)
 
     vendor = relationship("Vendor", back_populates="vendor_details")
+
+class Scheduling_(Base):
+    __tablename__= "Schedule"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    schedule_vendor_id = Column(UUID(as_uuid=True), ForeignKey('Vendor.vendor_id'))
+    days = Column(String) #day(monday,tuesday) and times
+    exceptions = Column(Date)
+
