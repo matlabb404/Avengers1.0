@@ -18,4 +18,8 @@ class TokenData(BaseModel):
 class UserOut(BaseModel):
     email: EmailStr
 
+class UpdatePassword(BaseModel):
+    new_password: str
+    confirm_new_password: str
+
 

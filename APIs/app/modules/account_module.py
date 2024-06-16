@@ -10,6 +10,7 @@ from passlib.context import CryptContext
 from app.config.db.postgresql import SessionLocal
 from sqlalchemy.orm import Session
 from app.schemas.account_schema import AccountCreateBase
+from app.schemas.account_schema import UpdatePassword
 import bcrypt
 
 session = SessionLocal()
@@ -53,6 +54,20 @@ def register_user(db:Session, account:AccountCreateBase):
     
     return "User registered successfully"
 
+def reset_password(db:Session, update_password:UpdatePassword,  user_id : str):
+    db_user = db.query(User).filter(User.id == user_id).first()
+
+    if update_password.new_password != update_password.confirm_new_password:
+        return "Passwords do not match"
+    else:
+        hashed_new_password = bcrypt.hashpw(update_password.new_password.encode('utf-8'), bcrypt.gensalt())
+
+    if db_user: 
+        db_user.password = hashed_new_password.decode('utf-8')
+        db.commit()
+        return "Password updated Successfully" 
+    else:
+        return "User with id does not exist"
 
 def user_login(email: str, password: str, db:Session):
     user= db.query(User).filter(User.email == email).first()

@@ -35,6 +35,11 @@ async def login_user(email, password, db:Session=Depends(get_db)):
     responce = register_module.user_login(email=email, password=password, db=db)
     return responce
 
+@router.put("update_password/{user_id}", tags=["Account"])
+async def reset_password(update_passworda: account_schema.UpdatePassword, db:Session=Depends(get_db), current_user : User = Depends(get_current_user)):
+    responce = register_module.reset_password(db=db, update_password=update_passworda, user_id=current_user.id)
+    return responce
+
 @router.post("/token", tags=["Account"], response_model=account_schema.Token)
 async def get_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db:Session= Depends(get_db)):
     token = register_module.login_for_access_token(form_data=form_data, db=db)
