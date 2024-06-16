@@ -98,8 +98,14 @@ def get_db():
 
 
 @router.post("/Add_service", tags=["Service"])
-async def add_service(service: services_schema.ServicesDropDownOption, db:Session=Depends(get_db)):
-    responce = add_s(db=db, service=service)
+async def add_service(old_service: services_schema.ServicesDropDownOption, new_service: str, db:Session=Depends(get_db)):
+    service = old_service
+    if new_service != "None":
+        service = new_service
+    lowercase = service.lower()
+    nospace = lowercase.replace(" ","")
+    strid = nospace
+    responce = add_s(db=db, strid= strid,service=service)
     return responce
 
 
