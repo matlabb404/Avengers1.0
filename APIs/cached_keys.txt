@@ -1,8 +1,0 @@
-<<<<<<< HEAD
-vendor:5ce21ff2f3c31953baa8c9ba31605c28
-service:3970164843548c9d37bb383c77aa869a
-=======
-vendor:020ff8a2b641cf55e0102cdc45041759
-service:1696e688fd9b0b22727fc451d92eac1c
->>>>>>> 10d2fabc86cade141de0cfaa2811d59bc423e3c9
-customer:358d34a25f4a15a4ae394b9a13cc5d01
