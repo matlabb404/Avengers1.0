@@ -1,0 +1,18 @@
+Step 1:
+npx create-expo-app@latest -e with-router
+
+#in homep folder
+#appname patterns 
+
+step 2:
+npm install expo-font axios react-native-dotenv
+
+#install 3 extra dependencies
+
+step 3: 
+cd patterns
+npm start
+
+#if ruuning through issues first install follwing package 
+
+npx expo start --tunnel
