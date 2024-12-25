@@ -9,17 +9,25 @@ from app.models.customer_model import customer
 from app.models.service_model import Add_Service
 from app.models.booking_model import Booking
 from app.config.db.postgresql import SessionLocal, engine
+from fastapi.middleware.cors import CORSMiddleware
 
 # flush the db on every run 
-Base.metadata.drop_all(bind=engine)
+# Base.metadata.drop_all(bind=engine)
 
 
 #re-create the db
 Base.metadata.create_all(bind=engine)
 
 
-
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins; adjust as needed
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 app.include_router(apis_test_router.router)
