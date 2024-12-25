@@ -75,42 +75,39 @@ export function logoutUser() {
 
 
 export function loginUser(creds: { name: any; password: any; }) {
-    const config: RequestInit = {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      credentials: 'include', // Corrected type for credentials
-      body: `email=${creds.name}&password=${creds.password}`, // Use correct field names
-    };
-  
-    return async (dispatch: (arg0: { type: string; isFetching: boolean; isAuthenticated: boolean; creds?: any; message?: any; id_token?: any; }) => void) => {
-      // We dispatch requestLogin to kickoff the call to the API
-      dispatch(requestLogin(creds));
-  
-      if (process.env.NODE_ENV === "development") {
-        try {
-          // Ensure you're using the correct URL (based on your FastAPI docs)
-          const response = await fetch('http://192.168.100.223/Account/Login', config);  // Correct URL
-          const user = await response.json();
-  
-          if (!response.ok) {
-            // If there was a problem, dispatch the error condition
-            dispatch(loginError(user.message));
-            return Promise.reject(user);
-          }
-  
-          // If login was successful, set the token in AsyncStorage
-          await AsyncStorage.setItem('id_token', user.id_token);
-          dispatch(receiveLogin(user));
-          return Promise.resolve(user);
-        } catch (err) {
-          console.error('Error: ', err);
-          dispatch(loginError('Failed to login'));
+  const config: RequestInit = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include', // Corrected type for credentials
+    body: JSON.stringify({
+      email: creds.name,
+      password: creds.password, // Match the backend field names
+    }), // Use correct field names
+  };
+
+  return async (dispatch: (arg0: { type: string; isFetching: boolean; isAuthenticated: boolean; creds?: any; message?: any; id_token?: any; }) => void) => {
+    dispatch(requestLogin(creds));
+
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        const response = await fetch('http://192.168.100.223:8000/Account/Login', config); //my ip
+        const user = await response.json();
+
+        if (!response.ok) {
+          dispatch(loginError(user.message || 'Failed to login'));
+          return Promise.reject(user);
         }
-      } else {
-        // If running in a non-dev environment, use a predefined token
-        await AsyncStorage.setItem('id_token', appConfig.id_token);
-        dispatch(receiveLogin({ id_token: appConfig.id_token }));
+        await AsyncStorage.setItem('id_token', user.id_token);
+        dispatch(receiveLogin(user));
+        return Promise.resolve(user);
+      } catch (err) {
+        console.error('Login failed:', err);
+        dispatch(loginError('Failed to login'));
       }
-    };
-  }
-  
+    } else {
+      // If not in dev mode, use a predefined token
+      await AsyncStorage.setItem('id_token', appConfig.id_token);
+      dispatch(receiveLogin({ id_token: appConfig.id_token }));
+    }
+  };
+}

@@ -7,7 +7,7 @@ from app.schemas import account_schema
 from fastapi.security import OAuth2PasswordBearer,OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.models.account_model import User
-from pydantic import EmailStr
+from pydantic import EmailStr, BaseModel
 
 
 
@@ -24,6 +24,10 @@ def get_db():
     finally:
         db.close()
 
+# Define the Pydantic model for request validation
+class LoginRequest(BaseModel):
+    email: str
+    password: str
 
 @router.post("/register", tags=["Account"])
 async def register_user(register: account_schema.AccountCreateBase, db:Session=Depends(get_db)):
@@ -31,8 +35,8 @@ async def register_user(register: account_schema.AccountCreateBase, db:Session=D
     return responce
 
 @router.post("/Login", tags=["Account"])
-async def login_user(email, password, db:Session=Depends(get_db)):
-    responce = register_module.user_login(email=email, password=password, db=db)
+async def login_user(request: LoginRequest, db:Session=Depends(get_db)):
+    responce = register_module.user_login(email=request.email, password=request.password, db=db)
     return responce
 
 @router.put("update_password/{user_id}", tags=["Account"])
