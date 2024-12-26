@@ -14,13 +14,13 @@ interface LoginProps {
   dispatch: any;
   isFetching: boolean;
   isAuthenticated: boolean;
-  errorMessage: string | null;
 }
 
 interface LoginState {
   login: string;
   password: string;
   showPassword: boolean; // Add this to manage password visibility
+  errorMessage: string | null;
 }
 
 class Login extends React.Component<LoginProps, LoginState> {
@@ -48,29 +48,43 @@ class Login extends React.Component<LoginProps, LoginState> {
   };
 
   // Method to handle login button press
-  doLogin = () => {
+  doLogin = async () => {
     const { login, password } = this.state;
     const { dispatch } = this.props;
-    dispatch(loginUser({ name: login, password }));
+    this.setState({ errorMessage: "" });
+  
+    // Dispatch the login action
+    try {
+      await dispatch(loginUser({ name: login, password })); // Wait for the login action to complete
+  
+      if (this.props.isAuthenticated) {
+        // Navigate to the main screen if login is successful
+        this.props.navigation.navigate("Main");
+      } else {
+        // Display an error message if authentication fails
+      }
+    } catch (error) {
+      this.setState({ errorMessage: "Please check email or password." });
+      // Handle any errors during login
+    }
   };
 
   render() {
-    const { login, password, showPassword } = this.state;
-    const { isFetching, errorMessage, navigation } = this.props;
+    const { login, password, showPassword, errorMessage } = this.state;
+    const { isFetching, navigation } = this.props;
 
     return (
       <SafeAreaView style={styles.container}>
         <Text style={styles.title}>Login to your App</Text>
 
-        {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
 
         <TextInput
           style={styles.input}
           value={login}
           onChangeText={this.handleLoginChange}
-          placeholder="Username"
+          placeholder="Email"
           autoCapitalize="none"
-        />
+          />
 
         <View style={styles.passwordContainer}>
           <TextInput
@@ -79,11 +93,11 @@ class Login extends React.Component<LoginProps, LoginState> {
             onChangeText={this.handlePasswordChange}
             placeholder="Password"
             secureTextEntry={!showPassword} // Toggle secureTextEntry
-          />
+            />
           <TouchableOpacity
             style={styles.toggleButton}
             onPress={this.togglePasswordVisibility} // Call togglePasswordVisibility
-          >
+            >
             <Text style={styles.toggleText}>{showPassword ? "Hide" : "Show"}</Text>
           </TouchableOpacity>
         </View>
@@ -92,16 +106,17 @@ class Login extends React.Component<LoginProps, LoginState> {
           style={styles.button}
           onPress={this.doLogin}
           disabled={isFetching}
-        >
+          >
           <Text style={styles.text}>{isFetching ? "Loading..." : "Login"}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.button}
           onPress={() => navigation.navigate("Register")} // Navigate to Register screen
-        >
+          >
           <Text style={styles.text}>Create an account</Text>
         </TouchableOpacity>
+        {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
       </SafeAreaView>
     );
   }

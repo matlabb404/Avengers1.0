@@ -1,34 +1,42 @@
-import React, { Dispatch } from 'react';
+import React, { Dispatch, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, View, TouchableOpacity } from 'react-native';
-// import Icon from 'react-native-vector-icons/FontAwesome'; // Make sure you install this library
-
-import Login from '../pages/login/Login';
-import Register from '../pages/register/Register';
-import { logoutUser } from '@/actions/user';
+// import Icon from 'react-native-vector-icons/FontAwesome'; // Uncomment if using this library
 import { connect } from 'react-redux';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import Login from '../pages/login/Login';
+import Register from '../pages/register/Register';
+import HomeScreen from '../pages/homescreen/Homescreen';
+import Following from '@/pages/follow/Follow';
+import Discover from '@/pages/discover/Discover';
+
+import { logoutUser } from '@/actions/user';
+
 const Stack = createNativeStackNavigator();
 
-interface PrivateRouteProps {
-  navigation: any;
-  component: React.ComponentType<any>;
-}
+const AppNavigator = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [initialRoute, setInitialRoute] = React.useState<string>('Login');
 
-const PrivateRoute = ({ component: Component, navigation, ...rest }: PrivateRouteProps) => {
-  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean | null>(null);
-
-  React.useEffect(() => {
+  useEffect(() => {
     const checkAuth = async () => {
-      const token = await AsyncStorage.getItem('id_token');
-      setIsAuthenticated(token ? true : false);
+      try {
+        const token = await AsyncStorage.getItem('id_token');
+        if (token) {
+          setInitialRoute('Main');
+        }
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
     checkAuth();
   }, []);
 
-  if (isAuthenticated === null) {
+  if (isLoading) {
     // Show a loading spinner while checking authentication
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -37,37 +45,34 @@ const PrivateRoute = ({ component: Component, navigation, ...rest }: PrivateRout
     );
   }
 
-  return isAuthenticated ? <Component {...rest} /> : null;
+  return (
+    <Stack.Navigator
+      initialRouteName={initialRoute}
+      screenOptions={{
+        headerShown: false, // Disable headers globally
+      }}
+    >
+      <Stack.Screen name="Login" component={Login} />
+      <Stack.Screen name="Register" component={Register} />
+      <Stack.Screen name="Following" component={Following} />
+      <Stack.Screen name="Discover" component={Discover} />
+      <Stack.Screen name="Main" component={HomeScreen} />
+    </Stack.Navigator>
+  );
 };
 
 // Define the CloseButton component with TouchableOpacity and react-native-vector-icons
-
 const CloseButton = ({ closeToast }: { closeToast: () => void }) => (
   <TouchableOpacity onPress={closeToast}>
     {/* <Icon name="close" size={20} /> */}
   </TouchableOpacity>
 );
 
-class Home extends React.PureComponent<any> {
-  render() {
-    return (
-        <Stack.Navigator initialRouteName="Login"  screenOptions={{
-          headerShown: false, // Disable headers globally
-        }}>
-          <Stack.Screen name="Login" component={Login} />
-          <Stack.Screen name="Register" component={Register} />
-          {/* Example of private route */}
-          {/* <Stack.Screen
-            name="Home"
-            children={(props) => (
-              <PrivateRoute {...props} component={HomeScreen} />
-            )}
-          /> */}
-          {/* <Stack.Screen name="Error" component={ErrorPage} /> */}
-        </Stack.Navigator>
-    );
-  }
-}
+const Home = (props: any) => {
+  return (
+      <AppNavigator isAuthenticated={props.isAuthenticated} />
+  );
+};
 
 const mapStateToProps = (state: any) => ({
   isAuthenticated: state.auth.isAuthenticated,
@@ -77,4 +82,4 @@ const mapDispatchToProps = (dispatch: any) => ({
   logoutUser: () => dispatch(logoutUser()),
 });
 
-export default connect(mapStateToProps)(Home);
+export default connect(mapStateToProps, mapDispatchToProps)(Home);

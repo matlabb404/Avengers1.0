@@ -1,35 +1,40 @@
 import { StyleSheet } from "react-native";
+import theme from "../../styles/theme";
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: "center",
-    padding: 16,
+    padding: theme.sizes.medium,
   },
   title: {
-    fontSize: 24,
+    color: theme.colors.font,
+    fontSize: theme.sizes.xlarge,
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: theme.sizes.xlarge,
   },
   input: {
-    borderRadius: 8,
-    height: 40,
+    borderRadius: theme.sizes.small,
+    height: theme.sizes.xxxlarge,
     borderColor: "#ccc",
     borderWidth: 1,
-    marginBottom: 12,
-    paddingLeft: 8,
+    marginBottom: theme.sizes.small,
+    paddingLeft: theme.sizes.xxsmall,
   },
   error: {
-    color: "red",
-    marginBottom: 12,
+    color: theme.colors.danger,
+    marginBottom: theme.sizes.small,
+    textAlign: "center",
+    margin: 0,
+    padding: 0,
   },
   button: {
     backgroundColor: "#32a5db",
-    height: 40,
+    height: theme.sizes.xxxlarge,
     justifyContent: "center",
-    marginBottom: 8,
-    borderBottomLeftRadius: 10,
-    borderTopRightRadius: 10,
+    marginBottom: theme.sizes.xxsmall,
+    borderBottomLeftRadius: theme.sizes.xsmall,
+    borderTopRightRadius: theme.sizes.xsmall,
   },
   password: {
     borderColor: "#ccc",
@@ -40,15 +45,15 @@ const styles = StyleSheet.create({
   text: {
     textAlign: "center",
     color: "white",
-    fontSize: 18,
+    fontSize: theme.sizes.medium,
   },
   toggleButton: {
     marginLeft: 10,
     marginRight: 15,
   },
   toggleText: {
-    color: "#32a5db",
     fontWeight: "bold",
+    color: theme.colors.font,
   },
   passwordContainer: {
     flexDirection: "row",
