@@ -3,7 +3,7 @@ import theme from "@/styles/theme";
 
 const styles = StyleSheet.create({
     main: {
-        height: 75,
+        height: 80,
         margin: 0,
         padding: 0,
         width: '100%',
@@ -17,10 +17,19 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         padding: 0,
         height: 50,
-        marginTop: 20,
-        width: '90%',
-        marginLeft: '5%',
-        marginRight: '5%',
+        marginTop: 25,
+        width: '100%',
+        paddingLeft: '5%',
+        paddingRight: '5%',
+        justifyContent: 'space-between',
+        overflowX: 'hidden',
+    },
+    iconBox: { 
+        width: '20%', 
+        minWidth: 145,
+        flexDirection: 'row', 
+        justifyContent: 'space-between',
+        overflowX: 'hidden',
     },
     headerBox: {
         flexDirection: 'row',
@@ -48,8 +57,12 @@ const styles = StyleSheet.create({
         paddingLeft: theme.sizes.xsmall,
         justifyContent: 'center',
         backgroundColor: theme.colors.primary,
-        borderRadius: theme.sizes.xxsmall,
-    }
+        borderRadius: theme.sizes.xxxsmall,
+    },
+    backdrop: {
+        backgroundColor: theme.colors.highlight,
+        zIndex: -5,
+    },
 });
 
 export default styles;
