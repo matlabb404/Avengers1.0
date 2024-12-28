@@ -57,10 +57,10 @@ export function logoutUser() {
     dispatch(requestLogout());
     try {
       // Make the logout request
-      await fetch('http://localhost:8000/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
+      // await fetch('http://localhost:8000/logout', {
+      //   method: 'POST',
+      //   credentials: 'include',
+      // });
 
       // Remove the token from AsyncStorage
       await AsyncStorage.removeItem('id_token');
@@ -97,7 +97,7 @@ export function loginUser(creds: { name: any; password: any; }) {
           dispatch(loginError(user.message || 'Failed to login'));
           return Promise.reject(user);
         }
-        await AsyncStorage.setItem('id_token', user.id_token);
+        await AsyncStorage.setItem('id_token', user.id_token.access_token);
         dispatch(receiveLogin(user));
         return Promise.resolve(user);
       } catch (err) {

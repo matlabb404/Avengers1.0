@@ -15,9 +15,7 @@ class User(Base):
     users_booking  = relationship("Booking", back_populates="booking_user")
 
     #relationship with customer
-
     user_customer = relationship("customer", back_populates = "customer_user")
 
-
-
-
+    #relationship with Vendor
+    user_vendor = relationship("Vendor", back_populates = "vendor_user")

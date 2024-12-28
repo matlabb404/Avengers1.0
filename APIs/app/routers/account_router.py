@@ -36,7 +36,9 @@ async def register_user(register: account_schema.AccountCreateBase, db:Session=D
 
 @router.post("/Login", tags=["Account"])
 async def login_user(request: LoginRequest, db:Session=Depends(get_db)):
-    responce = register_module.user_login(email=request.email, password=request.password, db=db)
+    user = register_module.user_login(email=request.email, password=request.password, db=db)
+    access_token = register_module.login_for_access_token
+    responce = {"user": user, "id_token": access_token}
     return responce
 
 @router.put("update_password/{user_id}", tags=["Account"])

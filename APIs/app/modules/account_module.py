@@ -76,9 +76,6 @@ def user_login(email: str, password: str, db:Session):
     
     if not bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(user.email, expires_delta=access_token_expires)
-    user = {"user": user, "id_token": access_token}
     return user
 
 
@@ -112,7 +109,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     if user is None:
         #   print("User not found in database")  was used to debug 
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-    print("current_user:",  user)
+
     return user
 
 def login_for_access_token(db: Session, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):

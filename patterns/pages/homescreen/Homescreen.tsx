@@ -5,6 +5,7 @@ import Dropdown from "@/components/Dropdown/Dropdown";
 // import Login from "@/pages/login/Login"; // Import the components for each link
 import Following from "../follow/Follow";
 import Discover from "../discover/Discover";
+import Footer from "@/components/Footer/Footer";
 import styles from "./homescreen.style";
 
 // Define the column headers
@@ -33,10 +34,12 @@ const HomeScreen = () => {
           }}
         />
       </View>
-      <View style={{ flex: 1, padding: 20 }}>
+      <View style={styles.activePage}>
         {/* Render the active component */}
         {activePage && React.createElement(pageComponents[activePage])}
       </View>
+      {/* Footer component positioned at the bottom */}
+      <Footer/>
     </View>
   );
 };

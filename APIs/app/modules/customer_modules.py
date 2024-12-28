@@ -16,8 +16,9 @@ def add_customer(db:Session,customer:customer_schema.CustomerCreateBase, user_id
     return db_customer
 
 
-def update_customer_id(db: Session, customer_id: str, update_data: dict):
-    db_customer = db.query(customer_model.customer).filter(customer_model.customer.customer_id == customer_id)
+def update_customer_id(db: Session, current_user_id: str, update_data: dict):
+    customer_id = get_current_customer(current_user_id, db).customer_id
+    db_customer = db.query(customer_model.customer).filter(customer_model.customer.customer_id == customer_id).first()
     if db_customer:
         for key, value in update_data.dict().items():  
             setattr(db_customer, key, value)
@@ -29,10 +30,14 @@ def update_customer_id(db: Session, customer_id: str, update_data: dict):
 
 
 def delete_customer_by_id(db: Session, customer_id: str):
-    customer = db.query(customer_model.customer).filter(customer_model.customer.customer_id == customer_id)
+    customer = db.query(customer_model.customer).filter(customer_model.customer.customer_id == customer_id).first()
     if customer:
         db.delete(customer)
         db.commit()
         return True
     else:
         return False
+    
+def get_current_customer(user_id: str, db: Session ):
+    customer = db.query(customer_model.customer).filter(customer_model.customer.user_id == user_id).first()
+    return customer

@@ -25,7 +25,6 @@ const styles = StyleSheet.create({
         overflowX: 'hidden',
     },
     iconBox: { 
-        width: '20%', 
         minWidth: 145,
         flexDirection: 'row', 
         justifyContent: 'space-between',
@@ -62,6 +61,10 @@ const styles = StyleSheet.create({
     backdrop: {
         backgroundColor: theme.colors.highlight,
         zIndex: -5,
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
     },
 });
 

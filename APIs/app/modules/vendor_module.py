@@ -1,4 +1,3 @@
-import requests
 from app.models import vendor_model, api_test_model
 from sqlalchemy.orm import Session
 import json
@@ -9,9 +8,8 @@ from sqlalchemy.dialects import postgresql
 from uuid import UUID
 
 
-def add_vendor(db:Session, vendor:vendor_Schema.VendorCreateBase, vendor_emaail : str ):
-
-    db_vendor = vendor_model.Vendor(**vendor.dict(), vendor_email = vendor_emaail)
+def add_vendor(db:Session, vendor:vendor_Schema.VendorCreateBase, vendor_emaail : str, user_id_ :str ):
+    db_vendor = vendor_model.Vendor(**vendor.dict(), vendor_email = vendor_emaail, user_id = user_id_)
     db.add(db_vendor)
     db.commit()
     db.refresh(db_vendor)
@@ -47,9 +45,9 @@ def vendor_details_delete(db:Session, vendor_id_details: UUID):
         return False
 
 
-def gett(name: str):
-    responcedata = requests.get("http://127.0.0.1:8000/Account/register")
-    return responcedata.status_code
+# def gett(name: str):
+#     responcedata = requests.get("http://127.0.0.1:8000/Account/register")
+#     return responcedata.status_code
 
 
 def add_vendor_details(db:Session, vendor_id: UUID ,vendor_details_request:vendor_Schema.VendorDetailsCreateBase):
@@ -81,3 +79,8 @@ def __schedule(db:Session, schedule_vendor_id: UUID, schedulebase:vendor_Schema.
     db.commit()
     db.refresh(scheduling)
     return scheduling
+
+
+def get_current_vendor(user_id: str, db: Session ):
+    customer = db.query(vendor_model.Vendor).filter(vendor_model.Vendor.user_id == user_id).first()
+    return customer

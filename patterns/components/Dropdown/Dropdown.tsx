@@ -6,6 +6,7 @@ import {
     Animated,
     PanResponder,
     Dimensions,
+    BackHandler,
 } from "react-native";
 import styles from "./dropdown.style";
 
@@ -71,11 +72,11 @@ const Dropdown: React.FC<DropdownProps> = ({ headers, navigation }) => {
                 {
                     const releasePoint = gestureState.moveY; // Y position where the touch was released
                     const shouldCollapse = releasePoint > halfScreenHeight;
-                    if (!shouldCollapse) { settopBoxHeight(80); } else { settopBoxHeight(screenHeight); }
+                    if (!shouldCollapse) { settopBoxHeight(0); } else { settopBoxHeight(screenHeight); }
                     // Animate based on release position
                     Animated.timing(animatedValue, {
                         toValue: shouldCollapse ? screenHeight : 0, // Collapse or scroll up
-                        duration: 300,
+                        duration: 100,
                         useNativeDriver: false,
                     }).start();
                 }
@@ -113,21 +114,26 @@ const Dropdown: React.FC<DropdownProps> = ({ headers, navigation }) => {
     
     const dynamicIcon = {
             opacity: animatedValue.interpolate({
-                inputRange: [0, screenHeight/2],
+                inputRange: [screenHeight/2, (screenHeight/2+ screenHeight/4)], // Adjust based on screen height
                 outputRange: [0, 1],
                 extrapolate: "clamp",
-            })
+            }),
+            width: animatedValue.interpolate({
+                inputRange: [screenHeight/2, (screenHeight/2+ screenHeight/4)], // Adjust based on screen height
+                outputRange: [0, 70], // Adjust minimum and maximum container width
+                extrapolate: "clamp",
+            }),
         };
 
     const dynamicBackdrop = {
             height: animatedValue.interpolate({
                 inputRange: [0, screenHeight],
-                outputRange: [0, screenHeight],
+                outputRange: [70, screenHeight],
                 extrapolate: "clamp",
             }),
             width: animatedValue.interpolate({
                 inputRange: [0, screenHeight],
-                outputRange: ['0vw', '100vw'],
+                outputRange: ['100vw', '100vw'],
                 extrapolate: "clamp",
             })
         };
@@ -171,6 +177,23 @@ const Dropdown: React.FC<DropdownProps> = ({ headers, navigation }) => {
         navigation.navigate(header.link);
     };
 
+    useEffect(() => {
+        const backHandler = BackHandler.addEventListener("hardwareBackPress", () => {
+            Animated.timing(animatedValue, {
+                toValue: 0,
+                duration: 300,
+                useNativeDriver: false,
+            }).start();
+            settopBoxHeight(0);
+            return true; // Prevent default back behavior
+        });
+        return () => {
+            // Remove the back handler backHandler.remove();
+    
+            // Reset animation
+        };
+    }, []);
+    
 
     return (
         <Animated.View style={[styles.backdrop, dynamicBackdrop]}>
@@ -217,10 +240,10 @@ const Dropdown: React.FC<DropdownProps> = ({ headers, navigation }) => {
                 ))}
             </Animated.View>
             <Animated.View style={[styles.iconBox, dynamicIconBox]}>
-                <Text>Icon1</Text>
-                <Animated.Text style={[dynamicIcon]}>Icon2</Animated.Text>
-                <Animated.Text style={[dynamicIcon]}>Icon3</Animated.Text>
-                <Text>Icon4</Text>
+                <Text>Notification</Text>
+                <Animated.Text style={[dynamicIcon]}>Saved</Animated.Text>
+                <Animated.Text style={[dynamicIcon]}>Bookings</Animated.Text>
+                <Text>Chat</Text>
             </Animated.View>
         </Animated.View>
         </Animated.View >

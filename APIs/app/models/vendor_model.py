@@ -8,6 +8,7 @@ class Vendor(Base):
     __tablename__ = "Vendor"
 
     vendor_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid= True),ForeignKey('users.id'), nullable=False)
     vendor_email = Column(String)
     first_name = Column(String)
     last_name = Column(String, nullable=False)
@@ -24,6 +25,9 @@ class Vendor(Base):
 
     vendor_details = relationship("Vendor_Details", uselist=False, back_populates="vendor")
 
+    vendor_user = relationship("User", back_populates = "user_vendor")
+    
+    schedule = relationship("Scheduling_", back_populates = "schedules")
 
 class Vendor_Details(Base):
     __tablename__= "Vendor_Details"
@@ -44,3 +48,4 @@ class Scheduling_(Base):
     days = Column(String) #day(monday,tuesday) and times
     exceptions = Column(Date)
 
+    schedules = relationship("Vendor", back_populates = "schedule")
