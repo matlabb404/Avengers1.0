@@ -113,7 +113,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     return user
 
 def login_for_access_token(db: Session, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    user = user_login(form_data.username, form_data.password, db)
+    if (form_data.email):
+        user = user_login(form_data.email, form_data.password, db)
+    else:
+        user = user_login(form_data.username, form_data.password, db)
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(user.email, expires_delta=access_token_expires)
     return {"access_token": access_token, "token_type": "bearer"}

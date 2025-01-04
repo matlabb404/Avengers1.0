@@ -73,7 +73,6 @@ export function logoutUser() {
   };
 }
 
-
 export function loginUser(creds: { name: any; password: any; }) {
   const config: RequestInit = {
     method: 'POST',
@@ -90,7 +89,7 @@ export function loginUser(creds: { name: any; password: any; }) {
 
     if (process.env.NODE_ENV === 'development') {
       try {
-        const response = await fetch('http://192.168.100.223:8000/Account/Login', config); //my ip
+        const response = await fetch('http://192.168.100.219:8000/Account/Login', config); //my ip
         const user = await response.json();
 
         if (!response.ok) {
@@ -110,4 +109,41 @@ export function loginUser(creds: { name: any; password: any; }) {
       dispatch(receiveLogin({ id_token: appConfig.id_token }));
     }
   };
+}
+
+export async function check_user() {
+  const token = await AsyncStorage.getItem('id_token'); // Retrieve token from storage
+
+  // If no token, immediately return false
+  if (!token) {
+    console.log("No token found in AsyncStorage");
+    return false;
+  }
+
+  // Update the URL to include the token as a query parameter
+  const url = `http://192.168.100.219:8000/Account/get_user?token=${encodeURIComponent(token)}`;
+
+  const config: RequestInit = {
+    method: 'GET', // Use GET request
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include', // Include cookies if needed
+  };
+
+  try {
+    const response = await fetch(url, config);
+    const user = await response.json();
+
+    // If the backend returns `false`, clear the token and return false
+    if (user === false) {
+      console.log("User validation failed. Removing token.");
+      await AsyncStorage.removeItem('id_token');
+      return false;
+    }
+
+    // Otherwise, return true
+    return true;
+  } catch (err) {
+    console.error('Failed to check user:', err);
+    return false; // Treat failure as unauthenticated
+  }
 }

@@ -11,6 +11,14 @@ import Register from '../pages/register/Register';
 import HomeScreen from '../pages/homescreen/Homescreen';
 import Following from '@/pages/follow/Follow';
 import Discover from '@/pages/discover/Discover';
+import Profile from '@/pages/profile/Profile';
+import Search from '@/pages/search/Search';
+import Post from '@/pages/post/Post';
+import Chat from '@/pages/chat/Chat';
+import Booking from '@/pages/booking/Booking';
+import Saved from '@/pages/saved/Saved';
+import MainHome from './Home/Home';
+import Notification from '@/pages/notification/Notification';
 
 import { logoutUser } from '@/actions/user';
 
@@ -56,7 +64,15 @@ const AppNavigator = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
       <Stack.Screen name="Register" component={Register} />
       <Stack.Screen name="Following" component={Following} />
       <Stack.Screen name="Discover" component={Discover} />
-      <Stack.Screen name="Main" component={HomeScreen} />
+      <Stack.Screen name="Main" component={HomeScreen} />      
+      <Stack.Screen name="Profile" component={Profile} />      
+      <Stack.Screen name="Search" component={Search} />      
+      <Stack.Screen name="Post" component={Post} />      
+      <Stack.Screen name="Chat" component={Chat} />      
+      <Stack.Screen name="Booking" component={Booking} />      
+      <Stack.Screen name="Saved" component={Saved} />      
+      <Stack.Screen name="Notification" component={Notification} />      
+      <Stack.Screen name="Home" component={MainHome} />      
     </Stack.Navigator>
   );
 };

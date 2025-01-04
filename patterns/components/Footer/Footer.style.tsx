@@ -21,7 +21,21 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         width: '90%',
         margin: 'auto',
-    }
+    },
+    activeButton: {
+        borderBottomWidth: 2,
+        borderBottomColor: "#007BFF",
+      },
+      inactiveButton: {
+        borderBottomWidth: 0,
+      },
+      activeText: {
+        color: "#007BFF",
+        fontWeight: "bold",
+      },
+      inactiveText: {
+        color: "#000",
+      },
 });
 
 export default styles;

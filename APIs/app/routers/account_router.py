@@ -35,9 +35,9 @@ async def register_user(register: account_schema.AccountCreateBase, db:Session=D
     return responce
 
 @router.post("/Login", tags=["Account"])
-async def login_user(request: LoginRequest, db:Session=Depends(get_db)):
+async def login_user(request: LoginRequest,db:Session=Depends(get_db)):
     user = register_module.user_login(email=request.email, password=request.password, db=db)
-    access_token = register_module.login_for_access_token
+    access_token = register_module.login_for_access_token(form_data=request, db=db)
     responce = {"user": user, "id_token": access_token}
     return responce
 
@@ -55,12 +55,9 @@ async def get_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], 
 async def welcome_user(current_user : User = Depends(get_current_user)):
     return {"message": f"Welcome, {current_user.email}, you are authorized"}
 
-
-
-
-
-
-
-
-
-
+@router.get("/get_user", tags=["Account"])
+async def get_user_wtoken(token:str):
+    user = register_module.get_current_user(token=token)
+    if ( user == {"detail": "User not found"}):
+        return False
+    return True

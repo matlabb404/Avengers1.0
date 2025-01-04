@@ -10,7 +10,7 @@ const theme = {
         inactive: '#d9f0fe',
         smaller: '#8ad5ff',
         money: '#64d78a',
-        shadowS: '#f5f577',//could be z
+        shadowS: '#f5f5f7',//could be z
         shadowM: '#d4f0fe',
         danger: '#dc3545',
     },
