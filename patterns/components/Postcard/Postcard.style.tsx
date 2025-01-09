@@ -1,0 +1,135 @@
+import { StyleSheet } from "react-native";
+import theme from "@/styles/theme";
+
+const styles = StyleSheet.create({
+    maincard: {
+        width: '90%',
+        marginRight: '5%',
+        marginLeft: '5%',
+        minHeight: 300,
+        display: 'flex',
+        flexDirection: 'column',
+        marginBottom: 11,
+        marginTop: 9,
+        backgroundColor: theme.colors.primary,
+        borderRadius: theme.sizes.medium,
+        padding: theme.sizes.xsmall,
+        // iOS Shadow
+        shadowColor: theme.colors.shadowM,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: theme.sizes.xsmall,
+        // Android Shadow
+        elevation: 3,
+    },
+    namecontainer: {
+        width: '100%',
+        height: theme.sizes.large,
+        paddingLeft: 5,
+        paddingRight: 5,
+    },
+    vendorname: {
+        color: theme.colors.font,
+        fontSize: theme.sizes.medium,
+        fontWeight: 800,
+    },
+    readMore: {
+        paddingLeft: 1,
+        paddingRight: 1,
+        fontSize: theme.sizes.xsmall,
+        color: theme.colors.icon,
+        marginTop: 4,
+        fontWeight: 'bold',
+    },
+    readMoreExpanded: {
+        paddingLeft: 1,
+        paddingRight: 1,
+        fontSize: theme.sizes.xsmall,
+        color: theme.colors.icon,
+        marginTop: 4,
+        fontWeight: 'bold',
+    },
+    descriptionbox: {
+        paddingLeft: 6,
+        paddingRight: 6,
+        paddingTop: 3,
+        width: '100%',
+        maxHeight: 50,
+        minHeight: 50,
+    },
+    descriptionboxexpanded: {
+        paddingLeft: 6,
+        paddingRight: 6,
+        // paddingTop: 3,
+        // paddingBottom: 3,
+        width: '100%',
+        // height: 210,
+        // maxHeight: 210,
+        zIndex: 90,
+        // marginBottom: -160,
+        borderRadius: 5,
+        borderWidth: 2,       // Border thickness
+        borderColor: theme.colors.secondary,   // Border color
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(2px)',
+    },
+    descriptionboxexpandeddefault: {
+        paddingLeft: 6,
+        paddingRight: 6,
+        paddingTop: 2.5,
+        width: '100%',
+        height: 210,
+        maxHeight: 210,
+        zIndex: 90,
+        borderRadius: 5,
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(2px)',
+    },
+    buttonbox: {
+        width: '100%',
+        height: theme.sizes.medium,
+        marginTop: -5,
+        marginBottom: 7,
+    },
+    mediaconatinaer: {
+        minHeight: 160,
+        zIndex: 66,
+        width: '96%',
+        marginRight: '2%',
+        marginLeft: '2%',
+        marginBottom:0,
+        marginTop:0,
+    },
+    reviews: {
+        width: '100%',
+        // height: 22,
+        paddingLeft: 6,
+        paddingRight: 7,
+        borderBottomWidth: 2,
+        // marginTop: 2,
+        // paddingBottom: 4,
+        borderColor: theme.colors.secondary,
+    },
+    iconcontainer: {
+        flex: 1,
+        maxWidth: '100%',
+        minHeight: 50,
+        justifyContent: 'center',
+    },
+    icon: {
+        display: 'none'
+    },
+    mediaImage: {
+        width: 150,
+        height: 150,
+        maxWidth: 150,
+        maxHeight: 150,
+        marginRight: 0.5,
+        marginLeft: 0.5,
+        marginTop: 5,
+        marginBottom: 5,
+        borderRadius: 5,
+    },
+});
+
+export default styles;

@@ -113,7 +113,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     return user
 
 def login_for_access_token(db: Session, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    if (form_data.email):
+    if form_data.email:
         user = user_login(form_data.email, form_data.password, db)
     else:
         user = user_login(form_data.username, form_data.password, db)

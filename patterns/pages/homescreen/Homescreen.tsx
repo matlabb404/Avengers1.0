@@ -99,7 +99,13 @@ const HomeScreen = ({ navigation }: HomeProps) => {
                 />
             </View>
             {/* Render active component */}
-            {renderActivePage()}
+            <View style={{
+                flex: 1,
+                width: '100%',
+                maxHeight: screenHeight - 70,
+            }}>
+                {renderActivePage()}
+            </View>
             {/* Footer with dynamic zIndex */}
             <Animated.View
                 style={{

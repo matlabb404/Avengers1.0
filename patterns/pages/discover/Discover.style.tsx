@@ -2,12 +2,11 @@ import { StyleSheet } from "react-native";
 import theme from "@/styles/theme";
 
 const styles = StyleSheet.create({
-  activePage: {
-    flex:1,
-    marginTop: 80,
-    width: '100%',
-    zIndex: 20, // Make sure the dropdown is above other content
-  },
+    discovermain: {
+        flex:1,
+        width: '100%',
+        height: '84%',
+    },
 });
 
 export default styles;
