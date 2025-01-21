@@ -19,6 +19,7 @@ import Booking from '@/pages/booking/Booking';
 import Saved from '@/pages/saved/Saved';
 import MainHome from './Home/Home';
 import Notification from '@/pages/notification/Notification';
+import BigPostCard from '@/pages/bigpostcard/bigpostcard';
 
 import { logoutUser } from '@/actions/user';
 
@@ -73,6 +74,7 @@ const AppNavigator = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
       <Stack.Screen name="Saved" component={Saved} />      
       <Stack.Screen name="Notification" component={Notification} />      
       <Stack.Screen name="Home" component={MainHome} />      
+      <Stack.Screen name="Expanded" component={BigPostCard} />      
     </Stack.Navigator>
   );
 };

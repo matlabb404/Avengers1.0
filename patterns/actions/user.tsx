@@ -89,7 +89,7 @@ export function loginUser(creds: { name: any; password: any; }) {
 
     if (process.env.NODE_ENV === 'development') {
       try {
-        const response = await fetch('http://192.168.100.219:8000/Account/Login', config); //my ip
+        const response = await fetch('http://192.168.8.117:8000/Account/Login', config); //my ip
         const user = await response.json();
 
         if (!response.ok) {
@@ -121,7 +121,7 @@ export async function check_user() {
   }
 
   // Update the URL to include the token as a query parameter
-  const url = `http://192.168.100.219:8000/Account/get_user?token=${encodeURIComponent(token)}`;
+  const url = `http://192.168.8.117/Account/get_user?token=${encodeURIComponent(token)}`;
 
   const config: RequestInit = {
     method: 'GET', // Use GET request

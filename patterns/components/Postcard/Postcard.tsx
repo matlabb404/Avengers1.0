@@ -1,17 +1,22 @@
 import React, { Component } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Image, Dimensions } from 'react-native';
 import styles from './Postcard.style';
+import BigPostCard from '@/pages/bigpostcard/bigpostcard';
 
 interface Post {
+  id: string;
   name: string;
   description: string;
   review: number;
   picture_url?: string | string[];
+  aspectRatio: number | null;
 }
 
 interface PostCardProps {
   post: Post;
+  navigation: any;
 }
+
 
 interface PostCardState {
   isExpanded: boolean;
@@ -60,9 +65,15 @@ class PostCard extends Component<PostCardProps, PostCardState> {
       },
     );
   };
+  
+  expandPost = (post: Post, navigation: any) => {
+    post.aspectRatio = this.state.imageRatio;
+    console.log('Pressed Post: ',post);
+    navigation.navigate('Expanded',post);
+  };
 
   render() {
-    const { post } = this.props;
+    const { post, navigation } = this.props;
     const { isExpanded, imageHeight } = this.state;
 
     // Check the number of non-empty image URLs
@@ -82,7 +93,7 @@ class PostCard extends Component<PostCardProps, PostCardState> {
       };
 
     return (
-      <View style={styles.maincard}>
+      <View style={styles.maincard} onTouchEnd={() => this.expandPost(post, navigation)}>
         {pictureCount === 0 ? (
           <View style={{ flex: 1 }}>
             {/* Name */}

@@ -3,6 +3,7 @@ import { View } from "react-native";
 
 import Following from "@/pages/follow/Follow";
 import Discover from "@/pages/discover/Discover";
+import BigPostCard from "@/pages/bigpostcard/bigpostcard";
 
 import styles from "./Home.styles";
 
@@ -26,3 +27,5 @@ const MainHome = ({ activePage }: MainHomeProps) => {
 };
 
 export default MainHome;
+
+//will release a more efficient layout in 2.0! shout at me later please abeg
