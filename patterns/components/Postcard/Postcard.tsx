@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, Image, Dimensions, Animated }
 import styles from './Postcard.style';
 import BigPostCard from '../bigpostcard/bigpostcard';
 
+
 interface Post {
   id: any;
   name: string;

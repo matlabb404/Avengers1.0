@@ -1,5 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, Image, ScrollView, TouchableOpacity, Dimensions, Modal, BackHandler, Animated } from "react-native";
+import {
+  View,
+  Text,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  Dimensions,
+  Modal,
+  Animated,
+} from "react-native";
 import styles from "./bigpostcard.style";
 
 import Footer from "../Footer/Footer";
@@ -12,43 +21,81 @@ interface Post {
   picture_url?: string[];
 }
 
-const BigPostCard: React.FC<any> = ({ post, modalVisible, setModalVisible }: { post: Post, modalVisible: boolean, setModalVisible: (visible: boolean) => void; }) => {
-  //   console.log("Post after pressed: ", post);
-
+const BigPostCard: React.FC<any> = ({
+  post,
+  modalVisible,
+  setModalVisible,
+}: {
+  post: Post;
+  modalVisible: boolean;
+  setModalVisible: (visible: boolean) => void;
+}) => {
   const [imageHeight, setImageHeight] = useState<number | null>(null);
   const screenWidth = Dimensions.get("window").width;
-  const screenHeight = Dimensions.get("window").height;
-  const animatedValue = useRef(new Animated.Value(0)).current;
+  const animatedWidth = useRef(new Animated.Value(screenWidth * 0.9)).current;
+  const animatedMargin = useRef(new Animated.Value(screenWidth * 0.05)).current;
+  const animatedNameHeight = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
-    if (post.picture_url && post.picture_url.length > 0) {
+    if (post.picture_url && post.picture_url.filter((url) => url.trim() !== "").length > 0) {
       let maxHeight = 0;
-      post.picture_url.forEach((url) => {
-        Image.getSize(
-          url,
-          (width, height) => {
-            const calculatedHeight = (height / width) * screenWidth;
-            if (calculatedHeight > maxHeight) {
-              maxHeight = calculatedHeight;
-              setImageHeight(maxHeight); // Update state with the maximum height
-            }
-          },
-          (error) => console.error("Failed to fetch image size: ", error)
-        );
-      });
-    }
+      post.picture_url
+        .filter((url) => url.trim() !== "") // Filter out empty strings
+        .forEach((url) => {
+          Image.getSize(
+            url,
+            (width, height) => {
+              const calculatedHeight = (height / width) * screenWidth;
+              if (calculatedHeight > maxHeight) {
+                maxHeight = calculatedHeight;
+                setImageHeight(maxHeight); // Update state with the maximum height
+              }
+            },
+          );
+        });
+    }    
   }, [post.picture_url]);
 
-  const fetchImageHeight = (imageUrl: string) => {
-    Image.getSize(
-      imageUrl,
-      (width, height) => {
-        const calculatedHeight = (height / width) * screenWidth;
-        setImageHeight(calculatedHeight); // Update state with the calculated height
-      },
-      (error) => console.error("Failed to fetch image size: ", error)
-    );
-  };
+  // Animation effect when modal visibility changes
+  useEffect(() => {
+    if (modalVisible) {
+      Animated.parallel([
+        Animated.timing(animatedWidth, {
+          toValue: screenWidth,
+          duration: 300,
+          useNativeDriver: false,
+        }),
+        Animated.timing(animatedMargin, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: false,
+        }),
+        Animated.timing(animatedNameHeight, {
+          toValue: 40,
+          duration: 300,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(animatedWidth, {
+          toValue: screenWidth,
+          duration: 300,
+          useNativeDriver: false,
+        }),
+        Animated.timing(animatedMargin, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: false,
+        }),
+        Animated.timing(animatedNameHeight, {
+          toValue: 40,
+          duration: 300,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    }
+  }, [modalVisible]);
 
   const renderFooterActions = () => (
     <View style={styles.iconcontainer}>
@@ -63,10 +110,9 @@ const BigPostCard: React.FC<any> = ({ post, modalVisible, setModalVisible }: { p
   );
 
   const renderImages = () => {
-    if (!post.picture_url || post.picture_url.length === 0) {
+    if (!post.picture_url || !imageHeight ) {
       return null;
-    }
-    else if (post.picture_url.length === 1) {
+    } else if (post.picture_url.length === 1) {
       return (
         <Image
           source={{ uri: post.picture_url[0] }}
@@ -97,68 +143,37 @@ const BigPostCard: React.FC<any> = ({ post, modalVisible, setModalVisible }: { p
       );
     }
   };
+
   ///////////////////////////Animated Styles///////////////////////////
-  const dynamicmaincard = {
-    width: animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['100%', '90%'],
-      extrapolate: "clamp",
-    }),
-    marginRight: animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['0%', '5%'],
-      extrapolate: "clamp",
-    }),
-    marginLeft: animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['0%', '5%'],
-      extrapolate: "clamp",
-    }),
-    // display: 'flex',
-    // flexDirection: 'column',
-    // marginBottom: 11,
-    // marginTop: 9,
-    // backgroundColor: theme.colors.primary,
-    // borderRadius: theme.sizes.medium,
-    // padding: theme.sizes.xsmall,
+  const dynamicMainCard = {
+    width: animatedWidth,
+    marginLeft: animatedMargin,
+    marginRight: animatedMargin,
   };
 
-  const dynamicnamecontainer = {
-    width: animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['96%', '100%'],
-      extrapolate: "clamp",
-    }),
-    height: animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [40, 20],
-      extrapolate: "clamp",
-    }),
+  const dynamicNameContainer = {
+    width: animatedWidth,
+    height: animatedNameHeight,
   };
 
-  const dynamicdescriptionbox = {
-    width: animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['96%', '100%'],
-      extrapolate: "clamp",
-    }),
+  const dynamicDescriptionBox = {
+    width: animatedWidth,
   };
 
   return (
     <Modal
-      // animationType="fade"
       visible={modalVisible}
-      onRequestClose={() => { setModalVisible(false); }}
+      onRequestClose={() => setModalVisible(false)}
     >
-      <ScrollView showsVerticalScrollIndicator >
-        <Animated.View style={[styles.maincard, dynamicmaincard]}>
+      <ScrollView showsVerticalScrollIndicator>
+        <Animated.View style={[styles.maincard, dynamicMainCard]}>
           {/* Header */}
-          <Animated.View style={[styles.namecontainer, dynamicnamecontainer]}>
+          <Animated.View style={[styles.namecontainer, dynamicNameContainer]}>
             <Text style={styles.vendorname}>{post.name}</Text>
           </Animated.View>
 
           {/* Description */}
-          <Animated.View style={[styles.descriptionbox, dynamicdescriptionbox]}>
+          <Animated.View style={[styles.descriptionbox, dynamicDescriptionBox]}>
             <Text>{post.description}</Text>
           </Animated.View>
 
@@ -172,11 +187,9 @@ const BigPostCard: React.FC<any> = ({ post, modalVisible, setModalVisible }: { p
 
           {/* Footer Actions */}
           {renderFooterActions()}
-
         </Animated.View>
       </ScrollView>
     </Modal>
-
   );
 };
 
