@@ -3,7 +3,9 @@ import theme from "@/styles/theme";
 
 const styles = StyleSheet.create({
     maincard: {
+        position: 'relative',
         width: '90%',
+        zIndex: 10,
         marginRight: '5%',
         marginLeft: '5%',
         minHeight: 300,

@@ -19,7 +19,7 @@ import Booking from '@/pages/booking/Booking';
 import Saved from '@/pages/saved/Saved';
 import MainHome from './Home/Home';
 import Notification from '@/pages/notification/Notification';
-import BigPostCard from '@/pages/bigpostcard/bigpostcard';
+import BigPostCard from '@/components/bigpostcard/bigpostcard';
 
 import { logoutUser } from '@/actions/user';
 

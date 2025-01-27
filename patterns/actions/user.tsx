@@ -89,7 +89,7 @@ export function loginUser(creds: { name: any; password: any; }) {
 
     if (process.env.NODE_ENV === 'development') {
       try {
-        const response = await fetch('http://192.168.8.117:8000/Account/Login', config); //my ip
+        const response = await fetch('http://192.168.162.140:8000/Account/Login', config); //my ip
         const user = await response.json();
 
         if (!response.ok) {
@@ -121,7 +121,7 @@ export async function check_user() {
   }
 
   // Update the URL to include the token as a query parameter
-  const url = `http://192.168.8.117/Account/get_user?token=${encodeURIComponent(token)}`;
+  const url = `http://192.168.162.140:8000/Account/get_user?token=${encodeURIComponent(token)}`;
 
   const config: RequestInit = {
     method: 'GET', // Use GET request
@@ -144,6 +144,8 @@ export async function check_user() {
     return true;
   } catch (err) {
     console.error('Failed to check user:', err);
+    console.log("User validation failed. Removing token.");
+    await AsyncStorage.removeItem('id_token');
     return false; // Treat failure as unauthenticated
   }
 }

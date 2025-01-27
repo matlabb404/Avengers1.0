@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import Following from "@/pages/follow/Follow";
 import Discover from "@/pages/discover/Discover";
-import BigPostCard from "@/pages/bigpostcard/bigpostcard";
+import BigPostCard from "@/components/bigpostcard/bigpostcard";
 
 import styles from "./Home.styles";
 

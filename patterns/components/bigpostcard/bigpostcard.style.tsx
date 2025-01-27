@@ -3,15 +3,20 @@ import theme from "@/styles/theme";
 
 const styles = StyleSheet.create({
     mainpost: {
-        flex:1,
-        width: '100%',
+        borderWidth: 1, // Add border
+        borderColor: 'yellow', // Make it visible]
+        position: 'absolute',
         backgroundColor: theme.colors.primary,
     },
     maincard: {
-        flex:1,
         width: '100%',
+        borderWidth: 1, // Add border
+        borderColor: 'yellow', // Make it visible]
+        minHeight: 300,
     },
     namecontainer: {
+        borderWidth: 1, // Add border
+        borderColor: 'yellow', // Make it visible]
         width: '96%',
         marginRight: '2%',
         marginLeft: '2%',
@@ -19,7 +24,7 @@ const styles = StyleSheet.create({
     },
     vendorname: {
         color: theme.colors.font,
-        fontSize: theme.sizes.xxlarge,
+        fontSize: theme.sizes.xlarge,
         fontWeight: 800,
     },
     descriptionbox: {
@@ -27,18 +32,20 @@ const styles = StyleSheet.create({
         marginRight: '2%',
         paddingTop: 3,
         width: '96%',
+        alignItems: 'center',
+        borderWidth: 1, // Add border
+        borderColor: 'yellow', // Make it visible]
     },
     mediaconatinaer: {
-        zIndex: 66,
-        width: '96%',
-        marginRight: '2%',
-        marginLeft: '2%',
+        borderWidth: 1, // Add border
+        borderColor: 'yellow', // Make it visible]
         marginBottom:0,
         marginTop:0,
     },
     mediaImage: {
-        width: '100%',
         // marginRight: 0.5,
+        borderWidth: 1, // Add border
+        borderColor: 'yellow', // Make it visible]
         // marginLeft: 0.5,
         // marginTop: 5,
         // marginBottom: 5,
@@ -51,14 +58,18 @@ const styles = StyleSheet.create({
         // height: 22,
         // paddingLeft: 6,
         // paddingRight: 7,
+        borderWidth: 1, // Add border
         borderBottomWidth: 2,
         // marginTop: 2,
         // paddingBottom: 4,
         borderColor: theme.colors.secondary,
     },
     iconcontainer: {
-        flex: 1,
-        width: '100%',
+        marginRight: '2%',
+        marginLeft: '2%',
+        width: '96%',
+        borderWidth: 1, // Add border
+        borderColor: 'yellow', // Make it visible]
         height: 50,
         justifyContent: 'center',
     },
