@@ -59,7 +59,7 @@ class Login extends React.Component<LoginProps, LoginState> {
   
       if (this.props.isAuthenticated) {
         // Navigate to the main screen if login is successful
-        this.props.navigation.navigate("Main");
+        this.props.navigation.navigate("HomeScreen");
       } else {
         // Display an error message if authentication fails
       }

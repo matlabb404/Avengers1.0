@@ -1,19 +1,22 @@
-// import { TOGGLE_SIDEBAR, OPEN_SIDEBAR, CLOSE_SIDEBAR } from '../constants';
+import { TOGGLE_DROPDOWN, OPEN_DROPDOWN, CLOSE_DROPDOWN } from '../constants';
 
-// export function toggleSidebar() {
-//   return {
-//     type: TOGGLE_SIDEBAR,
-//   };
-// }
+export function toggleDropdown() {
+  console.log(TOGGLE_DROPDOWN);
+  return {
+    type: TOGGLE_DROPDOWN,
+  };
+}
 
-// export function openSidebar() {
-//   return {
-//     type: OPEN_SIDEBAR,
-//   };
-// }
+export function openDropdown() {
+  console.log(OPEN_DROPDOWN);
+  return {
+    type: OPEN_DROPDOWN,
+  };
+}
 
-// export function closeSidebar() {
-//   return {
-//     type: CLOSE_SIDEBAR,
-//   };
-// }
+export function closeDropdown() {
+  console.log(CLOSE_DROPDOWN);
+  return {
+    type: CLOSE_DROPDOWN,
+  };
+}

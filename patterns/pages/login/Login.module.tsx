@@ -6,6 +6,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     padding: theme.sizes.medium,
+    width: '90%',
   },
   title: {
     color: theme.colors.font,

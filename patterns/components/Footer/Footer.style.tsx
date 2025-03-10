@@ -9,7 +9,7 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         width: '100%',
-        height: 70,
+        height: 100,
         justifyContent: 'center',
         borderTopLeftRadius: theme.sizes.small,
         borderTopRightRadius: theme.sizes.small,

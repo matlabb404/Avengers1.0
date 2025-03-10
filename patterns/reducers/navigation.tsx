@@ -1,28 +1,31 @@
-// import { TOGGLE_SIDEBAR, OPEN_SIDEBAR, CLOSE_SIDEBAR } from '../constants';
+import { TOGGLE_DROPDOWN, OPEN_DROPDOWN, CLOSE_DROPDOWN } from '../constants';
 
-// const initialState = {
-//   sidebarOpened: false,
-//   sidebarStatic: false,
-// };
+const initialState = {
+  dropdownOpened: false,
+  dropdownStatic: true,
+};
 
-// export default function runtime(state = initialState, action: { type: any; }) {
-//   switch (action.type) {
-//     case TOGGLE_SIDEBAR:
-//       return {
-//         ...state,
-//         sidebarOpened: !state.sidebarOpened,
-//       };
-//     case OPEN_SIDEBAR:
-//       return {
-//         ...state,
-//         sidebarOpened: true,
-//       };
-//     case CLOSE_SIDEBAR:
-//       return {
-//         ...state,
-//         sidebarOpened: false,
-//       };
-//     default:
-//       return state;
-//   }
-// }
+export default function navigation(state = initialState, action: { type: any; }) {
+  switch (action.type) {
+    case TOGGLE_DROPDOWN:
+      return {
+        ...state,
+        dropdownOpened: !state.dropdownOpened,
+        dropdownStatic: !state.dropdownStatic,
+      };
+    case OPEN_DROPDOWN:
+      return {
+        ...state,
+        dropdownOpened: true,
+        dropdownStatic: true,
+      };
+    case CLOSE_DROPDOWN:
+      return {
+        ...state,
+        dropdownOpened: false,
+        dropdownStatic: true,
+      };
+    default:
+      return state;
+  }
+}

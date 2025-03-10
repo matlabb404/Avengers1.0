@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity, SafeAreaView } from "react-native";
 
 import styles from "./Footer.style";
 
@@ -12,10 +12,10 @@ interface FooterProps {
 const Footer = ({ activePage, onNavigate }: FooterProps) => {
 
   return (
-    <View style={styles.mainfoot}>
+    <SafeAreaView style={styles.mainfoot}>
       <View style={styles.iconContainer}>
-        <TouchableOpacity onPress={() => onNavigate("Home")}><Text>Home</Text></TouchableOpacity>
-        <TouchableOpacity><Text style={activePage === "Home" ? styles.activeText : styles.inactiveText}>Home</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => onNavigate("HomeScreen")}><Text>Home</Text></TouchableOpacity>
+        <TouchableOpacity><Text style={activePage === "HomeScreen" ? styles.activeText : styles.inactiveText}>Home</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => onNavigate("Post")}>
           <Text style={activePage === "Post" ? styles.activeText : styles.inactiveText}>
             Post
@@ -34,7 +34,7 @@ const Footer = ({ activePage, onNavigate }: FooterProps) => {
           </Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

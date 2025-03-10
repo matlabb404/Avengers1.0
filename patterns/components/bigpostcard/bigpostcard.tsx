@@ -12,6 +12,7 @@ import {
 import styles from "./bigpostcard.style";
 
 import Footer from "../Footer/Footer";
+import { SafeAreaView } from "react-native";
 
 interface Post {
   id: string;
@@ -57,45 +58,45 @@ const BigPostCard: React.FC<any> = ({
   }, [post.picture_url]);
 
   // Animation effect when modal visibility changes
-  useEffect(() => {
-    if (modalVisible) {
-      Animated.parallel([
-        Animated.timing(animatedWidth, {
-          toValue: screenWidth,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-        Animated.timing(animatedMargin, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-        Animated.timing(animatedNameHeight, {
-          toValue: 40,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(animatedWidth, {
-          toValue: screenWidth,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-        Animated.timing(animatedMargin, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-        Animated.timing(animatedNameHeight, {
-          toValue: 40,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-      ]).start();
-    }
-  }, [modalVisible]);
+  // useEffect(() => {
+  //   if (modalVisible) {
+  //     Animated.parallel([
+  //       Animated.timing(animatedWidth, {
+  //         toValue: screenWidth,
+  //         duration: 300,
+  //         useNativeDriver: false,
+  //       }),
+  //       Animated.timing(animatedMargin, {
+  //         toValue: 0,
+  //         duration: 300,
+  //         useNativeDriver: false,
+  //       }),
+  //       Animated.timing(animatedNameHeight, {
+  //         toValue: 40,
+  //         duration: 300,
+  //         useNativeDriver: false,
+  //       }),
+  //     ]).start();
+  //   } else {
+  //     Animated.parallel([
+  //       Animated.timing(animatedWidth, {
+  //         toValue: screenWidth,
+  //         duration: 300,
+  //         useNativeDriver: false,
+  //       }),
+  //       Animated.timing(animatedMargin, {
+  //         toValue: 0,
+  //         duration: 300,
+  //         useNativeDriver: false,
+  //       }),
+  //       Animated.timing(animatedNameHeight, {
+  //         toValue: 40,
+  //         duration: 300,
+  //         useNativeDriver: false,
+  //       }),
+  //     ]).start();
+  //   }
+  // }, [modalVisible]);
 
   const renderFooterActions = () => (
     <View style={styles.iconcontainer}>
@@ -161,6 +162,7 @@ const BigPostCard: React.FC<any> = ({
   };
 
   return (
+    <SafeAreaView>
     <Modal
       visible={modalVisible}
       onRequestClose={() => setModalVisible(false)}
@@ -190,6 +192,7 @@ const BigPostCard: React.FC<any> = ({
         </Animated.View>
       </ScrollView>
     </Modal>
+    </SafeAreaView>
   );
 };
 

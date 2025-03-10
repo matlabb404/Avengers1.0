@@ -7,8 +7,17 @@ import {
     PanResponder,
     Dimensions,
     BackHandler,
+    SafeAreaView,
 } from "react-native";
 import styles from "./dropdown.style";
+
+import Notification from "@/pages/notification/Notification";
+import Saved from "@/pages/saved/Saved";
+import Chat from "@/pages/chat/Chat";
+import Booking from "@/pages/booking/Booking";
+import { connect } from "react-redux";
+import { Header } from "react-native/Libraries/NewAppScreen";
+import { openDropdown, closeDropdown, toggleDropdown } from "../../actions/navigation";
 
 // Define the type for the column headers
 interface ColumnHeader {
@@ -17,209 +26,227 @@ interface ColumnHeader {
     isActive: boolean;
 }
 
-// Props for the Dropdown component
-interface DropdownProps {
-    headers: ColumnHeader[];
-    navigation: any; // Navigation object for screen navigation
-    // animatedValues: Animated.Value; // Add animatedValue as a required prop
-    animatedValues: Animated.Value; // Integer value to reflect the animation progress
-    setAnimatedValues: (value: number) => void;
+interface displaypage {
+    pagedropdown: string;
 }
 
-const Dropdown: React.FC<DropdownProps> = ({ headers, navigation, animatedValues, setAnimatedValues }) => {
-    const touchY = React.useRef<number | null>(null);
-    // State to track the active link
-    const [activeLink, setActiveLink] = useState<string | null>(null);
+// Props for the Dropdown component
+interface DropdownState {
+    belowPage: displaypage;
+    activeLink: string | null;
+    abovePage: string;
+    animatedValues: Animated.Value; // Integer value to reflect the animation progress
+    setAnimatedValues: (value: number) => void;
+    setDropdownOpen: (value: boolean) => void;
+}
 
-    const originalWidthRef = useRef<number | null>(null);
+interface MotionProps {
+    headers: ColumnHeader[];
+    navigation: any;
+    dispatch: any;
+    dropdownOpened: boolean;
+    dropdownStatic: boolean;
+}
 
-    // Animated value to control the height of the dropdown
-    const animatedValue = useRef(new Animated.Value(0)).current;
+class Dropdown extends React.Component<MotionProps, DropdownState> {
+    touchY = React.createRef<number | null>();
+    pan = new Animated.ValueXY();
+    originalWidthRef = React.createRef<number | null>();
+    screenHeight = Dimensions.get("window").height;
+    screenWidth = Dimensions.get("window").width;
+    halfScreenHeight = this.screenHeight / 2;
+    shouldCollapse = false;
+    panResponder: any;
+    secondPanResponder: any;
 
-    // Screen dimensions
-    const screenHeight = Dimensions.get("window").height;
-    const halfScreenHeight = screenHeight / 2;
+    constructor(props: MotionProps) {
+        super(props);
+        this.state = {
+            belowPage: { pagedropdown: '' },
+            activeLink: null,
+            abovePage: 'Notification',
+            animatedValues: new Animated.Value(0),
+            setAnimatedValues: (value: number) => this.setState({ animatedValues: new Animated.Value(value) }),
+        };
 
-    // Gesture handling with PanResponder
-    const panResponder = useRef(
-        PanResponder.create({
-            onStartShouldSetPanResponder: () => true,
-            onPanResponderMove: (_, gestureState) => {
-                // Dynamically calculate the new position based on gesture
-                const newby = Math.sqrt(gestureState.dy * gestureState.dy);
+        this.panResponder = PanResponder.create({
+            onMoveShouldSetPanResponder: (_, gesture) => {
+                // Disable pan handling if touch is slight or near buttons
+                return Math.abs(gesture.dx) > 30 || Math.abs(gesture.dy) > 30;
+            },
+            onStartShouldSetPanResponderCapture: (evt, gesture) => {
+                // Block pan for buttons or interactive elements
+                return true;
+            },
+            onPanResponderGrant: () => {
+                console.log("PAN RESPONDER WAS GRANTED ACCESS!!!");
+                this.props.dispatch(toggleDropdown());
+                this.pan.setValue({ x: 0, y: 0 }); // Prevent cumulative gesture errors
+            },
+            onPanResponderMove: (_, gesture) => {
+                this.pan.y.setValue(gesture.dy);
+            },
+            onPanResponderRelease: (_, gesture) => {
+                console.log(
+                    { ...this.pan.y }, 'BEFORE'
+                );
+                this.pan.flattenOffset();
+                console.log(
+                    { ...this.pan.y }, 'AFTER'
+                );
 
-                if (newby > 20) {
-                    if (gestureState.dy > 0) {
-                        if (animatedValues._value === 0) {
-                        console.log("gesture direction", gestureState.dy);
-                        const newValue = Math.max(0, Math.min(screenHeight, gestureState.dy));
-                        animatedValue.setValue(newValue);
-                        console.log(`PanResponder Move down: ${newValue}`);
-                        } 
-                    } else {
-                        if (animatedValues._value != 0) {
-                        const newValue = screenHeight + gestureState.dy;
-                        animatedValue.setValue(newValue);
-                        console.log(`PanResponder Move up: ${newValue}`);
-                        }
-                    } // Log movement value temp fix
+                const releasePoint = gesture.moveY;
+                this.shouldCollapse = releasePoint > this.screenHeight / 3;
+
+                const targetPosition = this.shouldCollapse ? this.screenHeight - 70 : 0;
+
+                Animated.spring(this.pan.y, {
+                    toValue: targetPosition,
+                    useNativeDriver: true,
+                    friction: 8, // Adjust friction for smoothness
+                    tension: 100, // Adjust tension for speed
+                }).start();
+                this.pan.flattenOffset();
+                console.log(
+                    { ...this.pan.y }, 'AFTER ALL'
+                );
+
+                if (targetPosition !== 0) {
+                    this.props.dispatch(openDropdown());
+                } else {
+                    this.props.dispatch(closeDropdown());
                 }
             },
-            onPanResponderRelease: (_, gestureState) => {
-                // Determine if the dropdown should collapse or expand based on release position
-                const releasePoint = gestureState.moveY; // Y position where the touch was released
-                const shouldCollapse = releasePoint > halfScreenHeight;
-
-                // Animate the dropdown to its new position
-                Animated.timing(animatedValue, {
-                    toValue: shouldCollapse ? screenHeight : 0,
-                    duration: 200,
-                    useNativeDriver: false,
-                }).start();
-
-                animatedValues.setValue(shouldCollapse ? screenHeight : 0);
-
+            onPanResponderTerminate: (_, gesture) => {
+                console.log("PanResponder terminated");
                 console.log(
-                    `PanResponder Released: Should collapse? ${shouldCollapse}`,
-                    'New AnimatedValues:', animatedValues
+                    { ...this.pan.y }, 'BEFORE'
                 );
+                this.pan.flattenOffset();
+                console.log(
+                    this.pan.y, 'AFTER'
+                );
+
+                const releasePoint = gesture.moveY;
+                this.shouldCollapse = releasePoint > this.screenHeight / 3;
+
+                const targetPosition = this.shouldCollapse ? this.screenHeight - 70 : 0;
+
+                Animated.spring(this.pan.y, {
+                    toValue: targetPosition,
+                    useNativeDriver: true,
+                    friction: 8, // Adjust friction for smoothness
+                    tension: 100, // Adjust tension for speed
+                }).start();
+                this.pan.flattenOffset();
+                console.log(
+                    { ...this.pan.y }, 'AFTER ALL'
+                );
+
+                if (targetPosition !== 0) {
+                    this.props.dispatch(openDropdown());
+                } else {
+                    this.props.dispatch(closeDropdown());
+                }
             },
-        })
-    ).current;
-
-    // Function to handle header clicks
-    function doswipeup() {
-        // Use the position listener value from animatedValue listener
-        const currentValue = animatedValue._value;
-        console.log("Current animated value:", currentValue); // Log current value for debugging
-
-        // Check if current position is greater than 90 (not collapsed)
-        if (currentValue > 90) {
-            console.log("Animating to collapse...");
-            Animated.timing(animatedValue, {
-                toValue: 0, // Collapse or scroll up
-                duration: 200,
-                useNativeDriver: false, // Use native driver for better performance
-            }).start();
-        } else {
-            console.log("Current position is too low to collapse.");
-        }
-    }
-
-    // Function to handle header clicks
-    function doswipedown() {
-        // Use the position listener value from animatedValue listener
-        const currentValue = animatedValue._value;
-        console.log("Current animated value:", currentValue); // Log current value for debugging
-
-        // Check if current position is greater than 90 (not collapsed)
-        if (currentValue < 90) {
-            console.log("Animating to collapse...");
-            Animated.timing(animatedValue, {
-                toValue: screenHeight, // Collapse or scroll up
-                duration: 200,
-                useNativeDriver: false, // Use native driver for better performance
-            }).start();
-        } else {
-            console.log("Current position is too low to collapse.");
-        }
-    }
-
-    // Function to handle header clicks
-    const onPressHandler = (header: ColumnHeader) => {
-        console.log(`Header pressed: ${header.value} (link: ${header.link})`);
-
-        // Reset all headers to have isActive = false
-        headers.forEach((h: ColumnHeader) => {
-            h.isActive = false;
         });
 
-        // Set the clicked header as active
-        header.isActive = true;
-
-        // Update the active link and navigate
-        setActiveLink(header.link);
-        navigation.navigate(header.link);
-    };
-
-    const containerDynamicStyle = {
-        height: animatedValue.interpolate({
-            inputRange: [0, screenHeight], // Adjust based on screen height
-            outputRange: [80, screenHeight - 80], // Adjust minimum and maximum container height
-            extrapolate: "clamp",
-        }),
-    };
-
-    const dynamicIconBox = {
-        width: animatedValue.interpolate({
-            inputRange: [0, screenHeight], // Adjust based on screen height
-            outputRange: ["20%", "100%"], // Adjust minimum and maximum container width
-            extrapolate: "clamp",
-        }),
-    };
-
-    const dynamicIcon = {
-        opacity: animatedValue.interpolate({
-            inputRange: [screenHeight / 2, screenHeight / 2 + screenHeight / 4], // Adjust based on screen height
-            outputRange: [0, 1],
-            extrapolate: "clamp",
-        }),
-        width: animatedValue.interpolate({
-            inputRange: [screenHeight / 2, screenHeight / 2 + screenHeight / 4], // Adjust based on screen height
-            outputRange: [0, 70], // Adjust minimum and maximum container width
-            extrapolate: "clamp",
-        }),
-    };
-
-    const dynamicBackdrop = {
-        height: animatedValue.interpolate({
-            inputRange: [0, screenHeight],
-            outputRange: [70, screenHeight],
-            extrapolate: "clamp",
-        }),
-        width: animatedValue.interpolate({
-            inputRange: [0, screenHeight],
-            outputRange: ["100vw", "100vw"],
-            extrapolate: "clamp",
-        }),
-    };
-
-    const dynamictitleBox = {
-        opacity: animatedValue.interpolate({
-            inputRange: [0, screenHeight / 2],
-            outputRange: [1, 0],
-            extrapolate: "clamp",
-        }),
-        marginLeft: animatedValue.interpolate({
-            inputRange: [0, screenHeight],
-            outputRange: [0, -2000],
-            extrapolate: "clamp",
-        }),
-    };
-
-    const topBoxStyle = {
-        transform: [
-            {
-                translateY: animatedValue.interpolate({
-                    inputRange: [0, screenHeight], // Adjust based on screen height
-                    outputRange: [0, screenHeight - 100], // Adjust minimum and maximum container height
-                    extrapolate: "clamp", // Prevent the value from going beyond bounds
-                }),
+        this.secondPanResponder = PanResponder.create({
+            onMoveShouldSetPanResponder: (_, gesture) => {
+                // Disable pan handling if touch is slight or near buttons
+                return Math.abs(gesture.dx) > 20 || Math.abs(gesture.dy) > 20;
             },
-        ],
-    };
+            onStartShouldSetPanResponderCapture: (evt, gesture) => {
+                // Block pan for buttons or interactive elements
+                return false;
+            },
+            onPanResponderGrant: () => {
+                console.log("SECOND PAN RESPONDER WAS GRANTED ACCESS!!!");
+                this.props.dispatch(toggleDropdown());
+                this.pan.setValue({ x: 0, y: this.screenHeight - 70 }); // Prevent cumulative gesture errors
+            },
+            onPanResponderMove: (_, gesture) => {
+                this.pan.y.setValue(this.screenHeight - 70 + gesture.dy);
+            },
+            onPanResponderRelease: (_, gesture) => {
+                console.log(
+                    { ...this.pan.y }, 'BEFORE'
+                );
+                this.pan.flattenOffset();
+                console.log(
+                    { ...this.pan.y }, 'AFTER'
+                );
+        
+                const releasePoint = gesture.moveY;
+                this.shouldCollapse = releasePoint < this.screenHeight * 2 / 3;
+        
+                const targetPosition = this.shouldCollapse ? 0 : this.screenHeight - 70;
+        
+                Animated.spring(this.pan.y, {
+                    toValue: targetPosition,
+                    useNativeDriver: true,
+                    friction: 8, // Adjust friction for smoothness
+                    tension: 100, // Adjust tension for speed
+                }).start();
+                this.pan.flattenOffset();
+                console.log(
+                    { ...this.pan.y }, 'AFTER ALL'
+                );
+        
+                if (targetPosition !== 0) {
+                    this.props.dispatch(openDropdown());
+                } else {
+                    this.props.dispatch(closeDropdown());
+                }
+            },
+            onPanResponderTerminate: (_, gesture) => {
+                console.log("Second PanResponder terminated");
+                console.log(
+                    { ...this.pan.y }, 'BEFORE'
+                );
+                this.pan.flattenOffset();
+                console.log(
+                    this.pan.y, 'AFTER'
+                );
+        
+                const releasePoint = gesture.moveY;
+                this.shouldCollapse = releasePoint < this.screenHeight * 2 / 3;
+        
+                const targetPosition = this.shouldCollapse ? 0 : this.screenHeight - 70;
+        
+                Animated.spring(this.pan.y, {
+                    toValue: targetPosition,
+                    useNativeDriver: true,
+                    friction: 8, // Adjust friction for smoothness
+                    tension: 100, // Adjust tension for speed
+                }).start();
+                this.pan.flattenOffset();
+                console.log(
+                    { ...this.pan.y }, 'AFTER ALL'
+                );
+        
+                if (targetPosition !== 0) {
+                    this.props.dispatch(openDropdown());
+                } else {
+                    this.props.dispatch(closeDropdown());
+                }
+            },
+        });
+    }
 
-    // BackHandler to collapse the dropdown on back press
-    useEffect(() => {
+    componentDidMount() {
+        this.props.dispatch(closeDropdown());
         const backHandler = BackHandler.addEventListener(
             "hardwareBackPress",
             () => {
                 console.log("Back button pressed, collapsing dropdown");
-                Animated.timing(animatedValue, {
+                Animated.spring(this.pan.y, {
                     toValue: 0,
-                    duration: 300,
-                    useNativeDriver: false,
+                    useNativeDriver: true,
+                    friction: 8, // Adjust friction for smoothness
+                    tension: 100, // Adjust tension for speed
                 }).start();
+                this.pan.flattenOffset();
                 return true; // Prevent default back behavior
             }
         );
@@ -228,85 +255,208 @@ const Dropdown: React.FC<DropdownProps> = ({ headers, navigation, animatedValues
             console.log("Removing back handler");
             backHandler.remove(); // Cleanup the event listener on unmount
         };
-    }, []);
+    }
 
-    return (
-        <Animated.View style={[styles.backdrop, dynamicBackdrop]}>
-            <Animated.View style={[styles.main, containerDynamicStyle]}>
-                <Animated.View
-                    style={[styles.TopBox, topBoxStyle]}
-                    {...panResponder.panHandlers}
-                // onTouchStart={e => touchY.current = e.nativeEvent.pageY}
-                // onTouchEnd={e => {
-                //     if (touchY.current !== null && touchY.current - e.nativeEvent.pageY > 30) {
-                //         {
-                //             if (touchY.current !== null && touchY.current - e.nativeEvent.pageY > 40) {//when first is bigger than second it's a swipe up
-                //                 doswipeup();
-                //                 console.log('a swipe up', touchY.current, e.nativeEvent.pageY)
-                //             }
-                //         };
-                //     }
-                //     if (touchY.current !== null && e.nativeEvent.pageY - touchY.current > 30) {
-                //         if (touchY.current !== null && e.nativeEvent.pageY - touchY.current > 30) {//when second is bigger than first it's a swipe down
-                //             doswipedown();
-                //             console.log('a swipe down');
-                //         }
-                //     }
-                // }}
-                >
-                    <Animated.View
-                        style={[styles.headerBox, dynamictitleBox]}
-                        onLayout={(event) => {
-                            if (!originalWidthRef.current) {
-                                originalWidthRef.current = event.nativeEvent.layout.width;
-                                console.log("Header box width: ", originalWidthRef.current);
-                            }
-                        }}
+    doswipedown = () => {
+        console.log("Animating to collapse...");
+        Animated.spring(this.pan.y, {
+            toValue: this.screenHeight - 70,
+            useNativeDriver: true,
+            friction: 8, // Adjust friction for smoothness
+            tension: 100, // Adjust tension for speed
+        }).start();
+        this.pan.flattenOffset();
+        this.props.dispatch(openDropdown());
+        console.log(
+            { ...this.pan.y }, 'AFTER ALL');
+    };
+
+    onPressHandler = (header: ColumnHeader) => {
+        console.log(`Header pressed: ${header.value} (link: ${header.link})`);
+
+        this.props.headers.forEach((h: ColumnHeader) => {
+            h.isActive = false;
+        });
+
+        header.isActive = true;
+
+        this.setState({ activeLink: header.link });
+        this.props.navigation.navigate(header.link);
+    };
+
+    opendropdown = (page: string, swipedown: boolean) => {
+        if (swipedown) this.doswipedown();
+        this.setState({ abovePage: page });
+    };
+
+    render() {
+        const { navigation } = this.props;
+
+        const containerDynamicStyle = {
+            height: this.screenHeight + 130,
+            top: -50,
+            transform: [
+                {
+                    translateY: this.pan.y.interpolate({
+                        inputRange: [0, this.screenHeight - 140], // Adjust based on screen height
+                        outputRange: [0, -80], // Adjust minimum and maximum container width
+                        extrapolate: "clamp",
+                    })
+                }],
+            borderColor: this.pan.y.interpolate({
+                inputRange: [0, 140],
+                outputRange: ["#d4f0fe", "rgba(0, 0, 0, 0)"], // From blue to transparent
+            }),
+        };
+
+        const dynamicIconBox = {
+            flex: 1,
+            left: this.screenWidth * 0.5 * 0.9,
+            position: "absolute" as "absolute",
+            opacity: this.pan.y.interpolate({
+                inputRange: [0, 20],
+                outputRange: [1, 0], // Scale proportionally from 0 to full width
+                extrapolate: "clamp",
+            }),
+        };
+
+        const bottomIconBox = {
+            opacity: this.pan.y.interpolate({
+                inputRange: [0, this.screenHeight - 140],
+                outputRange: [0, 1], // Scale proportionally from 0 to full width
+                extrapolate: "clamp",
+            }),
+            flexDirection: "row" as "row",
+            justifyContent: "center" as "center",
+            position: "absolute" as "absolute",
+            bottom: 5,
+            height: 69,
+            width: this.screenWidth,
+        };
+
+        const dynamicIcon = {
+            width: this.screenWidth * 0.25,
+            height: this.screenHeight * 0.1,
+        };
+
+        const dynamicBackdrop = {
+            width: this.screenWidth,
+            height: this.screenHeight + 70,
+            top: -this.screenHeight,
+            transform: [{ translateY: this.pan.y }],
+        };
+
+        const dynamictitleBox = {
+            transform: [
+                {
+                    translateX: this.pan.y.interpolate({
+                        inputRange: [0, 100], // Adjust based on screen height
+                        outputRange: [0, -this.screenWidth], // Adjust minimum and maximum container width
+                        extrapolate: "clamp",
+                    })
+                }],
+        };
+
+        const topBoxStyle = {
+            top: this.screenHeight + 50,
+        };
+
+        const dropdownpageedit = {
+            width: this.screenWidth * 0.9,
+            marginLeft: this.screenWidth * 0.05,
+            marginRight: this.screenWidth * 0.05,
+            height: this.screenHeight - 90,
+            top: 80,
+            transform: [{
+                translateY: this.pan.y.interpolate({
+                    inputRange: [0, this.screenHeight - 140],
+                    outputRange: [0, 130],
+                    extrapolate: "clamp",
+                }),
+            }],
+        };
+
+        const renderPage = () => {
+            switch (this.state.abovePage) {
+                case "Bookings":
+                    return (<Animated.View style={[styles.dropdownpage, dropdownpageedit]}><Booking /></Animated.View>);
+                case "Bookmarked":
+                    return (<Animated.View style={[styles.dropdownpage, dropdownpageedit]}><Saved /></Animated.View>);
+                case "Chat":
+                    return (<Animated.View style={[styles.dropdownpage, dropdownpageedit]}><Chat /></Animated.View>);
+                case "Notification":
+                    return (<Animated.View style={[styles.dropdownpage, dropdownpageedit]}><Notification /></Animated.View>);
+            }
+        };
+
+        return (
+            <SafeAreaView>
+            <Animated.View style={[styles.backdrop, dynamicBackdrop]}>
+                <Animated.View style={[styles.main, containerDynamicStyle]}>
+                    {renderPage()}
+                    <Animated.ScrollView
+                        horizontal
+                        scrollEnabled={false}
+                        style={[styles.TopBox, topBoxStyle]}
+                        {...this.panResponder.panHandlers}
                     >
-                        {headers.map((header, index) => (
-                            <TouchableOpacity
-                                key={index}
-                                style={[
-                                    styles.headerContainer,
-                                    header.isActive && styles.activeButton, // Apply activeButton style if link is active
-                                ]}
-                                onPress={() => onPressHandler(header)}
+
+                        {this.props.headers.length > 1 ? (
+                            <Animated.View
+                                style={[styles.headerBox, dynamictitleBox]}
                             >
-                                <Text style={styles.headerText}>{header.value}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </Animated.View>
-                    <Animated.View style={[styles.iconBox, dynamicIconBox]}>
-                        <Text>Notification</Text>
-                        <Animated.Text style={[dynamicIcon]}>Saved</Animated.Text>
-                        <Animated.Text style={[dynamicIcon]}>Bookings</Animated.Text>
-                        <Text>Chat</Text>
-                    </Animated.View>
+                                {this.props.headers.map((header, index) => (
+                                    <TouchableOpacity
+                                        key={index}
+                                        style={[
+                                            styles.headerContainer,
+                                            header.isActive && styles.activeButton, // Apply activeButton style if link is active
+                                        ]}
+                                        onPress={() => this.onPressHandler(header)}
+                                    >
+                                        <Text style={styles.headerText}>{header.value}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </Animated.View>
+                        ) : (
+                            <View style={{
+                                marginTop: 10,
+                                marginLeft: 14,
+                            }}>
+                                <Text style={styles.headerText}>{this.props.headers.map(header => header.value).join(', ')}</Text>
+                            </View>
+                        )}
+                        <Animated.View style={[styles.iconBox, dynamicIconBox]}>
+                            <TouchableOpacity onPress={() => this.opendropdown('Notification', true)}><Text>Notification</Text></TouchableOpacity>
+                            <TouchableOpacity onPress={() => this.opendropdown('Chat', true)}><Text>Chat</Text></TouchableOpacity>
+                        </Animated.View>
+                    </Animated.ScrollView>
                 </Animated.View>
-            </Animated.View>
-        </Animated.View>
-    );
-};
+                <Animated.View style={[styles.bottomIconBox, bottomIconBox]}
+                    {...this.secondPanResponder.panHandlers}
+                >
+                    <TouchableOpacity style={[dynamicIcon, this.state.abovePage === 'Notification' ? styles.activeIcon : null]} onPress={() => this.opendropdown('Notification', false)}><Text>Notification</Text></TouchableOpacity>
+                    <TouchableOpacity style={[dynamicIcon, this.state.abovePage === 'Chat' ? styles.activeIcon : null]} onPress={() => this.opendropdown('Chat', false)}><Text>Chat</Text></TouchableOpacity>
+                    <TouchableOpacity style={[dynamicIcon, this.state.abovePage === 'Bookmarked' ? styles.activeIcon : null]} onPress={() => this.opendropdown('Bookmarked', false)}><Animated.Text>Bookmark</Animated.Text></TouchableOpacity>
+                    <TouchableOpacity style={[dynamicIcon, this.state.abovePage === 'Bookings' ? styles.activeIcon : null]} onPress={() => this.opendropdown('Bookings', false)}><Animated.Text>Bookings</Animated.Text></TouchableOpacity>
+                </Animated.View>
+            </Animated.View >
+            </SafeAreaView>
+        );
+    }
+}
 
-export default Dropdown;
+// Map state from Redux store to component props
+interface StoreState {
+    navigation: {
+        dropdownOpened: boolean;
+        dropdownStatic: boolean;
+    };
+}
 
-// // onLayout={(event) => {
-//             //     const { height } = event.nativeEvent.layout;
+const mapStateToProps = (store: StoreState) => ({
+    dropdownOpened: store.navigation.dropdownOpened,
+    dropdownStatic: store.navigation.dropdownStatic,
+});
 
-//             //     // Update both state and ref
-//             //     settopBoxHeight(height);
-//             // }}
-//             >
-//             <Animated.View style={[styles.TopBox, topBoxStyle]}
-//                 {...panResponder.panHandlers}
-//                 // onTouchStart={e => touchY.current = e.nativeEvent.pageY}
-//                 // onTouchEnd={e => {
-//                 //     if (touchY.current !== null && touchY.current - e.nativeEvent.pageY > 30)
-//                 //         if (touchY.current !== null && touchY.current - e.nativeEvent.pageY > 30)//when first is bigger than second it's a swipe up
-//                 //             //doswipeup(); bugs will fix later
-//                 //             console.log('a swipe up')
-//                 //     if (touchY.current !== null && e.nativeEvent.pageY - touchY.current > 30)
-//                 //         if (touchY.current !== null && e.nativeEvent.pageY - touchY.current > 30)//when second is bigger than first it's a swipe down
-//                 //             console.log('a swipe down')
-//                 // }}
-//             ></Animated.View>
+export default connect(mapStateToProps)(Dropdown);

@@ -1,13 +1,12 @@
-import React from 'react';
-import { View, Text } from 'react-native';
+import React from "react";
+import { View, Text } from "react-native";
 
-
-class Following extends React.Component {
-  render() {
-    return (
-      <View><Text>Following</Text></View>
-    );
-  }
-}
+const Following = React.memo(() => {
+  return (
+    <View>
+      <Text>Following Page</Text>
+    </View>
+  );
+});
 
 export default Following;

@@ -138,7 +138,7 @@ class PostCard extends Component<PostCardProps, PostCardState> {
     ///////////////////////////  ANIMATIONS END  ////////////////////
 
     return (
-      <Animated.View style={styles.maincard} onTouchEnd={() => this.expandPost(post)}>
+      <Animated.View style={styles.maincard}>
 
       {fullscreen? this.showanimatedview(post):null}
 
@@ -158,6 +158,7 @@ class PostCard extends Component<PostCardProps, PostCardState> {
                 style={styles.descriptionboxexpandeddefault}
                 nestedScrollEnabled={true}
                 showsVerticalScrollIndicator={false}
+                onTouchEnd={() => this.expandPost(post)}
               >
                 <Text>{post.description}</Text>
               </ScrollView>
@@ -234,6 +235,7 @@ class PostCard extends Component<PostCardProps, PostCardState> {
                 {Array.isArray(post.picture_url) && post.picture_url.filter((url) => url.trim() !== '').length === 1 ? (
                   <View style={{ flex: 1, width: '100%', height: undefined }}>
                     <Image
+                      onTouchEnd={() => this.expandPost(post)}
                       source={{ uri: post.picture_url[0] }}
                       style={{
                         width: '100%',
@@ -247,7 +249,7 @@ class PostCard extends Component<PostCardProps, PostCardState> {
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ justifyContent: 'space-between', gap: 10 }}>
                     {Array.isArray(post.picture_url) &&
                       post.picture_url.map((url, index) => (
-                        <View key={index} style={styles.mediaImage}>
+                        <View key={index} style={styles.mediaImage} onTouchEnd={() => this.expandPost(post)}>
                           <Image source={{ uri: url }} style={{ width: '100%', height: '100%' }} />
                         </View>
                       ))
