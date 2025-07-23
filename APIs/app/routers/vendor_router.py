@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from uuid import UUID
 from typing import Annotated
 import app.modules.vendor_module as vendor_mdl
@@ -29,6 +29,12 @@ async def add_vendor( vendor: vendor_Schema.VendorCreateBase, db:Session=Depends
     responce = vendor_mdl.add_vendor(db=db, vendor=vendor, vendor_emaail = email, user_id_=user_id)
     return responce
 
+@router.get("/get_vendor", tags=["Vendor"])
+async def get_vendor(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    vendor_record = vendor_mdl.get_current_vendor(current_user.id, db=db)
+    if not vendor_record:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    return vendor_record
 
 @router.post("/Vendor_Details", tags=["Vendor"])
 async def vendor_details( vendor_detials_request: vendor_Schema.VendorDetailsCreateBase, db:Session=Depends(get_db), current_user : User = Depends(get_current_user)):

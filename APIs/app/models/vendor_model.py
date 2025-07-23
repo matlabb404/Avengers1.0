@@ -19,7 +19,7 @@ class Vendor(Base):
     postal_code = Column(String(10), nullable=False)
     country = Column(String)
     gender = Column(Enum(Gender), default=Gender.Male)
-    age = Column(Date)
+    date_of_birth = Column(Date)
     business_name = Column(String)
     phone_no = Column(String(50))
 

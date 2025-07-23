@@ -1,5 +1,6 @@
 from app.models import customer_model
 from app.config.db.postgresql import SessionLocal
+from app.models.account_model import User
 from app.modules.account_module import get_current_user
 from sqlalchemy.orm import Session
 from app.schemas import customer_schema
@@ -13,7 +14,15 @@ def add_customer(db:Session,customer:customer_schema.CustomerCreateBase, user_id
     db.add(db_customer)
     db.commit()
     db.refresh(db_customer)
-    return db_customer
+    user = db.query(User).filter(User.id == user_id_).first()
+    if not user:
+        email = None  # fallback if no matching user found
+    else:
+        email = user.email
+    return {
+        "customer": db_customer,
+        "user_email": email
+    }
 
 
 def update_customer_id(db: Session, current_user_id: str, update_data: dict):

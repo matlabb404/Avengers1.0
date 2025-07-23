@@ -1,6 +1,7 @@
 from app.models import vendor_model, api_test_model
 from sqlalchemy.orm import Session
 import json
+from app.models.account_model import User
 from app.schemas import vendor_Schema
 from app.config.db.postgresql import SessionLocal
 from app.models.vendor_model import Vendor
@@ -13,7 +14,15 @@ def add_vendor(db:Session, vendor:vendor_Schema.VendorCreateBase, vendor_emaail 
     db.add(db_vendor)
     db.commit()
     db.refresh(db_vendor)
-    return db_vendor.vendor_id
+    user = db.query(User).filter(User.id == user_id_).first()
+    if not user:
+        email = None  # fallback if no matching user found
+    else:
+        email = user.email
+    return {
+        "vendor": db_vendor,
+        "user_email": email
+    }
 
 def vendor_update(db:Session, vendor_id: UUID, vendor_update:vendor_Schema.VendorCreateBase):
     db_vendor = db.query(vendor_model.Vendor).filter(vendor_model.Vendor.vendor_id == vendor_id).first()
@@ -82,5 +91,5 @@ def __schedule(db:Session, schedule_vendor_id: UUID, schedulebase:vendor_Schema.
 
 
 def get_current_vendor(user_id: str, db: Session ):
-    customer = db.query(vendor_model.Vendor).filter(vendor_model.Vendor.user_id == user_id).first()
-    return customer
+    vendor = db.query(vendor_model.Vendor).filter(vendor_model.Vendor.user_id == user_id).first()
+    return vendor
