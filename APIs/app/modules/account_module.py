@@ -109,19 +109,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     if user is None:
         #   print("User not found in database")  was used to debug 
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-    print("current_user:",  user)
+
     return user
 
 def login_for_access_token(db: Session, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    user= user_login(form_data.username, form_data.password, db)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail = "Incorrect Username or password",
-            headers= {"WWW-Authenticate": "Bearer"}
-        )
-    access_token_expires= timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token( user.email, expires_delta=access_token_expires)
+    user = user_login(form_data.username, form_data.password, db)
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(user.email, expires_delta=access_token_expires)
     return {"access_token": access_token, "token_type": "bearer"}
-
-

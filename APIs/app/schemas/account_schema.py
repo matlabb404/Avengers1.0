@@ -21,5 +21,3 @@ class UserOut(BaseModel):
 class UpdatePassword(BaseModel):
     new_password: str
     confirm_new_password: str
-
-

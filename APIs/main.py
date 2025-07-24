@@ -14,10 +14,8 @@ from fastapi.middleware.cors import CORSMiddleware
 # flush the db on every run 
 # Base.metadata.drop_all(bind=engine)
 
-
 #re-create the db
 Base.metadata.create_all(bind=engine)
-
 
 app = FastAPI()
 
@@ -28,7 +26,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 app.include_router(apis_test_router.router)
 app.include_router(account_router.router)

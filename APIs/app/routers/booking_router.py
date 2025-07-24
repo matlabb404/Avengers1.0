@@ -10,14 +10,9 @@ from app.models.account_model import User
 from app.modules.account_module import get_current_user
 import datetime
 from datetime import datetime as dtme
-import redis ,hashlib,secrets,string
+import hashlib,secrets,string
 
 router = APIRouter(prefix="/Booking")
-
-
-redis_client = redis.Redis(host='localhost', port=6379,db=0)
-# Send a ping request and check the response 
-print("Response:", redis_client.ping())
 
 
 def get_db():

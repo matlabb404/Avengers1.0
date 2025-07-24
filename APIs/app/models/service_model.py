@@ -27,4 +27,3 @@ class Service(Base):
 
    #booking relationship
    booking = relationship("Booking",uselist=False, back_populates="service")
-

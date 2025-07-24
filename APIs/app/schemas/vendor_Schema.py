@@ -19,7 +19,7 @@ class VendorCreateBase(BaseModel):
     postal_code : str 
     country: str
     gender: Gender
-    age: date
+    date_of_birth: date
     business_name: str 
  
 

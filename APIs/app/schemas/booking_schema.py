@@ -43,4 +43,3 @@ class BookingRespone(BaseModel):
     price : int
     time_date : str
     notes: str 
-
