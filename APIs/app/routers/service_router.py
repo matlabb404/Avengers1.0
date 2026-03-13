@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import Annotated
 import app.modules.big_services_module as big_service_mdl
 from app.schemas import big_services_schema
-from app.modules.service_module import add_s
+from app.modules.service_module import add_s, get_all_services
 import app.models.service_model as service_mdl
 from app.schemas import services_schema
 from app.config.db.postgresql import SessionLocal
@@ -37,7 +37,9 @@ async def add_service(old_service: services_schema.ServicesDropDownOption, new_s
     responce = add_s(db=db, strid= strid,service=service)
     return responce
 
-
+@router.get("/get_all_services", tags=["Service"])
+async def get_all_small_services(db:Session=Depends(get_db)):
+    return get_all_services(db=db)
 
 @router.post("/Add_big_service", tags=["Big Service"])
 async def add_big_service(big_service: big_services_schema.ServiceSchema, db: Session = Depends(get_db), current_user : User = Depends(get_current_user)):

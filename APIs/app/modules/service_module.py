@@ -10,3 +10,6 @@ def add_s(db:Session, strid:str ,service: services_schema.ServicesDropDownOption
     db.commit()
     db.refresh(db_service)
     return {"Service Added Successfully" :db_service}
+
+def get_all_services(db:Session):
+    return db.query(Add_Service).all()
