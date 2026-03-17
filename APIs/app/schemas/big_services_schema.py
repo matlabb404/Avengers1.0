@@ -16,3 +16,5 @@ class ServiceUpdate(BaseModel):
     price: Optional[float] = Field(None, title="Price")
     vendor_id: Optional[str] = Field(None, title="Vendor ID")
     add_service_id: Optional[str] = Field(None, title="Service ID")
+    description: Optional[str] = Field(None, title="Description")
+    image_url: Optional[list[str]] = Field(None, title="Image URLs")

@@ -14,7 +14,9 @@ def add_service(db: Session, big_service: big_services_schema.ServiceSchema, add
     new_service = Service(
         add_vendor_id=add_vendor_id,
         price=big_service.price,
-        add_service_id=big_service.add_service_id
+        add_service_id=big_service.add_service_id,
+        image_url=big_service.image_url,  
+        description=big_service.description
     )
     db.add(new_service)
     db.commit()

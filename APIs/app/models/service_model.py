@@ -1,6 +1,6 @@
 from app.config.db.postgresql import Base
 import uuid
-from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, text, Date, Enum, UUID, ForeignKey
+from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, text, Date, Enum, UUID, ForeignKey, ARRAY
 from sqlalchemy.orm import relationship
 from app.schemas.services_schema import ServicesDropDownOption
 
@@ -13,7 +13,6 @@ class Add_Service(Base):
    
    service_relation = relationship("Service", back_populates="add_service", uselist=False)
 
-
 class Service(Base):
    __tablename__ = "services"
 
@@ -21,7 +20,9 @@ class Service(Base):
    add_vendor_id = Column(UUID(as_uuid=True), ForeignKey('Vendor.vendor_id'), nullable=False)  
    price = Column(Integer)  
    add_service_id = Column(String, ForeignKey('add_service.id'), nullable=False)  
-   
+   image_url = Column(ARRAY(String), nullable=True)
+   description = Column(String, nullable=True)  
+
    # Define relationships
    add_service = relationship("Add_Service",uselist=False, back_populates="service_relation")
 
