@@ -12,3 +12,5 @@ redis
 aioredis
 python-multipart
 python-multipart
+boto3
+botocore
