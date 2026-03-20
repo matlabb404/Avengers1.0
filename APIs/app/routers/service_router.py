@@ -9,7 +9,7 @@ import json
 from typing import Annotated
 import app.modules.big_services_module as big_service_mdl
 from app.schemas import big_services_schema
-from app.modules.service_module import add_s, get_all_services
+from app.modules.service_module import add_s, get_all_services, get_allprice_history, add_price_history, get_price_history, update_price_history
 import app.models.service_model as service_mdl
 from app.schemas import services_schema
 from app.config.db.postgresql import SessionLocal
@@ -49,7 +49,8 @@ async def get_all_small_services(db:Session=Depends(get_db)):
 @router.post("/Add_big_service", tags=["Big Service"])
 async def add_big_service(
     # We receive the metadata as a JSON string or individual Form fields
-    price: float = Form(...),
+    price: Optional[float] = Form(...),
+    price_history: str = Form(None),
     add_service_id: str = Form(...),
     description: Optional[str] = Form(None),
     # We receive the list of images as actual Files
@@ -72,6 +73,7 @@ async def add_big_service(
     new_service = service_mdl.Service(
         add_vendor_id=vendor.vendor_id,
         price=price,
+        price_history=price_history,
         add_service_id=add_service_id,
         image_url=image_urls,
         description=description
@@ -91,7 +93,8 @@ async def get_service(service_id: str, db: Session = Depends(get_db), current_us
 async def update_service(
     service_id: str,
     add_vendor_id: str = Form(...), 
-    price: float = Form(...),
+    price: Optional[float] = Form(...),
+    price_history: Optional[str] = Form(...),
     add_service_id: str = Form(...),
     description: Optional[str] = Form(None),
     # Optional: Make images optional so they don't HAVE to upload new ones to change the price
@@ -103,7 +106,8 @@ async def update_service(
     if not existing_service:
         raise HTTPException(status_code=404, detail="Service not found")
 
-    # 2. Update basic fields directly
+    # 2. Update basic fields directly#
+    existing_service.price_history = price_history  # Keep old price history unless explicitly changed
     existing_service.price = price
     existing_service.add_service_id = add_service_id
     existing_service.description = description
@@ -142,6 +146,7 @@ async def delete_service(service_id: str, db: Session = Depends(get_db)):
         return "Not Found"
     return big_service_mdl.delete_service(db=db, service=db_service)
 '''
+
 @router.delete("/delete_service", tags=["Big Service"])
 async def delete_service(service_id: str, db: Session = Depends(get_db)):
     deleted = big_service_mdl.delete_service(db=db, service_id=service_id)
@@ -154,3 +159,30 @@ async def delete_service(service_id: str, db: Session = Depends(get_db)):
 async def get_all_service_by_vendor(vendor_id: str, db:Session= Depends(get_db)):
     service = big_service_mdl.get_service_by_vendor(db=db, vendor_id=vendor_id)
     return service
+
+@router.post("/add_price_history", tags=["Price History"])
+async def add_price(service_id:str, price:float, db:Session=Depends(get_db), current_user: User = Depends(get_current_user)):
+    vendor = get_current_vendor(current_user.id, db=db)
+    new_price_history = add_price_history(db=db, service_id=service_id, add_vendor_id=str(vendor.vendor_id), price=price)
+    return new_price_history
+
+@router.get("/get_price_history", tags=["Price History"])
+async def get_single_price(service_id:str, db:Session=Depends(get_db), current_user: User = Depends(get_current_user)):
+    vendor = get_current_vendor(current_user.id, db=db)
+    price_histor = get_price_history(db=db, service_id=service_id, add_vendor_id=str(vendor.vendor_id))
+    if price_histor is None:
+        return "Not Found"
+    return price_histor
+
+@router.get("/get_all_price_history", tags=["Price History"])
+async def get_all_price(db:Session=Depends(get_db), current_user: User = Depends(get_current_user)):
+    vendor = get_current_vendor(current_user.id, db=db)
+    price_histor = get_allprice_history(db=db, vendor_id=str(vendor.vendor_id))
+    if price_histor is None:
+        return "Not Found"
+    return price_histor
+
+@router.put("/update_price_history", tags=["Price History"])
+async def update_price(service_id:str, price:float, db:Session=Depends(get_db)):
+    new_price_history = update_price_history(db=db, service_id=service_id, new_price=price)
+    return new_price_history

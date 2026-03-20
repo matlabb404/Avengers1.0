@@ -1,6 +1,6 @@
 from app.config.db.postgresql import Base
 import uuid
-from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, text, Date, Enum, UUID, ForeignKey, ARRAY
+from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, text, Date, Enum, UUID, ForeignKey, ARRAY, Float
 from sqlalchemy.orm import relationship
 from app.schemas.services_schema import ServicesDropDownOption
 
@@ -18,7 +18,8 @@ class Service(Base):
 
    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
    add_vendor_id = Column(UUID(as_uuid=True), ForeignKey('Vendor.vendor_id'), nullable=False)  
-   price = Column(Integer)  
+   price = Column(Float, nullable=True)
+   price_history = Column(UUID(as_uuid=True), ForeignKey('price_history.id'), nullable=True)  
    add_service_id = Column(String, ForeignKey('add_service.id'), nullable=False)  
    image_url = Column(ARRAY(String), nullable=True)
    description = Column(String, nullable=True)  
@@ -28,3 +29,11 @@ class Service(Base):
 
    #booking relationship
    booking = relationship("Booking",uselist=False, back_populates="service")
+
+class price_history(Base):
+   __tablename__ = "price_history"
+
+   id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+   service_id = Column(String, ForeignKey('add_service.id'), nullable=False)  
+   add_vendor_id = Column(UUID(as_uuid=True), ForeignKey('Vendor.vendor_id'), nullable=False)  
+   price = Column(Float)
