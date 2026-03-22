@@ -26,7 +26,22 @@ def get_price_history(db:Session, service_id:str, add_vendor_id:str):
     return db.query(price_history).filter(price_history.service_id == service_id, price_history.add_vendor_id == add_vendor_id).first()
 
 def get_allprice_history(db:Session, vendor_id:str):
-    return db.query(price_history).filter(price_history.add_vendor_id == vendor_id).all()
+    results = (
+        db.query(price_history, Add_Service.service_name)
+        .join(Add_Service, price_history.service_id == Add_Service.id)
+        .filter(price_history.add_vendor_id == vendor_id)
+        .all()
+    )
+    return [
+        {
+            "service_id" : ph.service_id,
+            "id" : ph.id,
+            "price": ph.price,
+            "add_vendor_id": ph.add_vendor_id,
+            "service_name": service_name
+        }
+        for ph, service_name in results
+    ]
 
 def update_price_history(db:Session, service_id:str, new_price:int):
     db_price = db.query(price_history).filter(price_history.id == service_id).first()
