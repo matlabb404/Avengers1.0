@@ -45,7 +45,6 @@ async def get_all_small_services(db:Session=Depends(get_db)):
     return get_all_services(db=db)
 
 # Big Service CRUD operations
-
 @router.post("/Add_big_service", tags=["Big Service"])
 async def add_big_service(
     # We receive the metadata as a JSON string or individual Form fields
@@ -156,8 +155,15 @@ async def delete_service(service_id: str, db: Session = Depends(get_db)):
         return {"message": "Service not found"}
     
 @router.get("/get_all_service_by_vendor", tags=["Big Service"])
-async def get_all_service_by_vendor(vendor_id: str, db:Session= Depends(get_db)):
-    service = big_service_mdl.get_service_by_vendor(db=db, vendor_id=vendor_id)
+async def get_all_service_by_vendor(db:Session= Depends(get_db), current_user : User = Depends(get_current_user) ):
+    vendor = get_current_vendor(current_user.id, db=db)
+    service = big_service_mdl.get_service_by_vendor(db=db, vendor_id=vendor.vendor_id)
+    return service
+
+@router.get("/get_allfull_service", tags=["Big Service"])
+async def get_all_full_service(db:Session= Depends(get_db), current_user : User = Depends(get_current_user) ):
+    vendor = get_current_vendor(current_user.id, db=db)
+    service = big_service_mdl.get_all_service(db=db)
     return service
 
 @router.post("/add_price_history", tags=["Price History"])

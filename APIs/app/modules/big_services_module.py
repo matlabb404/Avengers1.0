@@ -27,12 +27,44 @@ def add_service(db: Session, big_service: big_services_schema.ServiceUpdate, add
     return {"service": new_service, "price": price_history}
 
 def get_service(db: Session, service_id: str):
-    return db.query(service_model.Service).filter(service_model.Service.id == service_id).first()
+    db_servce = db.query(service_model.Service, Vendor, service_model.price_history, service_model.Add_Service).join(service_model.Add_Service, service_model.Service.add_service_id == service_model.Add_Service.id).join(Vendor, service_model.Service.add_vendor_id == Vendor.vendor_id).join(service_model.price_history, service_model.Service.price_history ==  service_model.price_history.id).filter(service_model.Service.id == service_id).first()
+    if not service:
+        raise HTTPException(status_code=404, detail="Service not found")
+    output = []
+
+    for service, vendor, price_history, add_service in db_servce:
+        output.append({
+            "service": {
+                "id": service.id,
+                "price": service.price,
+                "description": service.description,
+                "image_url": service.image_url,
+                "add_vendor_id": service.add_vendor_id,
+                "add_service_id": service.add_service_id
+            },
+            "vendor": {
+                "vendor_id": vendor.vendor_id,
+                "first_name": vendor.first_name,
+                "last_name": vendor.last_name,
+                "business_name": vendor.business_name,
+                "city": vendor.city,
+                "country": vendor.country
+            },
+            "add_service": {
+                "id": add_service.id,
+                "service_name": add_service.service_name
+            },
+            "price_history": {
+                "id": price_history.id,
+                "price": price_history.price
+            }
+        })
+    return output
 
 def update_service(db: Session, service_id: str, update_data: ServiceUpdate):
     db_service = db.query(service_model.Service).filter(service_model.Service.id == service_id).first()
     if db_service:
-        for key, value in update_data.dict().items():
+        for key, value in update_data.dict(exclude_unset=True).items():
             setattr(db_service, key, value)
         db.commit()
         db.refresh(db_service)
@@ -51,7 +83,70 @@ def delete_service(db: Session, service_id: str):
     else:
         return False
     
-
 def get_service_by_vendor(db:Session, vendor_id : str):
-    db_servce = db.query(service_model.Service).filter(service_model.Service.add_vendor_id == vendor_id).all()
-    return db_servce
+    db_servce = db.query(service_model.Service, Vendor, service_model.price_history, service_model.Add_Service).join(service_model.Add_Service, service_model.Service.add_service_id == service_model.Add_Service.id).join(Vendor, service_model.Service.add_vendor_id == Vendor.vendor_id).join(service_model.price_history, service_model.Service.price_history ==  service_model.price_history.id).filter(service_model.Service.add_vendor_id == vendor_id).all()
+    output = []
+
+    for service, vendor, price_history, add_service in db_servce:
+        output.append({
+            "service": {
+                "id": service.id,
+                "price": service.price,
+                "description": service.description,
+                "image_url": service.image_url,
+                "add_vendor_id": service.add_vendor_id,
+                "add_service_id": service.add_service_id
+            },
+            "vendor": {
+                "vendor_id": vendor.vendor_id,
+                "first_name": vendor.first_name,
+                "last_name": vendor.last_name,
+                "business_name": vendor.business_name,
+                "city": vendor.city,
+                "country": vendor.country
+            },
+            "add_service": {
+                "id": add_service.id,
+                "service_name": add_service.service_name
+            },
+            "price_history": {
+                "id": price_history.id,
+                "price": price_history.price
+            }
+        })
+    return output
+
+def get_all_service(db:Session):
+    db_servce = db.query(service_model.Service, Vendor, service_model.price_history, service_model.Add_Service).join(service_model.Add_Service, service_model.Service.add_service_id == service_model.Add_Service.id).join(Vendor, service_model.Service.add_vendor_id == Vendor.vendor_id).join(service_model.price_history, service_model.Service.price_history ==  service_model.price_history.id).all()
+    output = []
+
+    for service, vendor, price_history, add_service in db_servce:
+        output.append({
+            "service": {
+                "id": service.id,
+                "price": service.price,
+                "description": service.description,
+                "image_url": service.image_url,
+                "add_vendor_id": service.add_vendor_id,
+                "add_service_id": service.add_service_id
+            },
+            "vendor": {
+                "vendor_id": vendor.vendor_id,
+                "first_name": vendor.first_name,
+                "last_name": vendor.last_name,
+                "business_name": vendor.business_name,
+                "city": vendor.city,
+                "country": vendor.country
+            },
+            "add_service": {
+                "id": add_service.id,
+                "service_name": add_service.service_name
+            },
+            "price_history": {
+                "id": price_history.id,
+                "price": price_history.price
+            }
+        })
+    return output
+
+# TODO: Change to use ORM relationships (.joinedload)
