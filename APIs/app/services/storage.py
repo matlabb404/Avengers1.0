@@ -2,6 +2,7 @@ import shutil
 from pathlib import Path
 import os
 import boto3
+import mimetypes
 from botocore.exceptions import NoCredentialsError
 from fastapi import HTTPException
 
@@ -15,6 +16,14 @@ USE_S3 = os.getenv("USE_S3", "false").lower() == "true"
 
 def save_file(file, folder_path: str) -> str:
     file_name = file.filename
+
+    # Try to get extension from MIME type
+    if not ext:
+        mime_type = getattr(file, "content_type", None)
+        ext = mimetypes.guess_extension(mime_type) if mime_type else ".bin"
+
+    # file_name += ext
+
     full_path = f"{folder_path}/{file_name}"
 
     if USE_S3:

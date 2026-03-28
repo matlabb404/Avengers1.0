@@ -3,7 +3,7 @@ from app.models.account_model import User
 from app.modules.account_module import get_current_user
 from app.modules.vendor_module import get_current_vendor
 from app.services.storage import save_file
-from fastapi import APIRouter, Depends, HTTPException, File, Form, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, File, Form, UploadFile, Query
 from typing import List, Optional
 import json
 from typing import Annotated
@@ -155,13 +155,13 @@ async def delete_service(service_id: str, db: Session = Depends(get_db)):
         return {"message": "Service not found"}
     
 @router.get("/get_all_service_by_vendor", tags=["Big Service"])
-async def get_all_service_by_vendor(db:Session= Depends(get_db), current_user : User = Depends(get_current_user) ):
+async def get_all_service_by_vendor(db:Session= Depends(get_db), page: int = Query(default=0, ge=0), page_size: int = Query(default=20, ge=1, le=100), current_user : User = Depends(get_current_user) ):
     vendor = get_current_vendor(current_user.id, db=db)
     service = big_service_mdl.get_service_by_vendor(db=db, vendor_id=vendor.vendor_id)
     return service
 
 @router.get("/get_allfull_service", tags=["Big Service"])
-async def get_all_full_service(db:Session= Depends(get_db), current_user : User = Depends(get_current_user) ):
+async def get_all_full_service(db:Session= Depends(get_db), page: int = Query(default=0, ge=0), page_size: int = Query(default=20, ge=1, le=100), current_user : User = Depends(get_current_user) ):
     vendor = get_current_vendor(current_user.id, db=db)
     service = big_service_mdl.get_all_service(db=db)
     return service
