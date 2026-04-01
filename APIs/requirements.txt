@@ -14,3 +14,7 @@ python-multipart
 python-multipart
 boto3
 botocore
+ffmpeg
+pillow
+uuid
+# subprocess

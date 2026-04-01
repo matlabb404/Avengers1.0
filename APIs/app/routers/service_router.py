@@ -2,8 +2,8 @@
 from app.models.account_model import User
 from app.modules.account_module import get_current_user
 from app.modules.vendor_module import get_current_vendor
-from app.services.storage import save_file
-from fastapi import APIRouter, Depends, HTTPException, File, Form, UploadFile, Query
+from app.services.storage import save_file, process_video_upload, UPLOAD_STATUS
+from fastapi import APIRouter, Depends, HTTPException, File, Form, UploadFile, Query, Request, Header, BackgroundTasks
 from typing import List, Optional
 import json
 from typing import Annotated
@@ -16,8 +16,12 @@ from app.config.db.postgresql import SessionLocal
 from sqlalchemy.orm import Session
 import hashlib,secrets,string
 from datetime import timedelta
+import uuid
+import os
 
-
+UPLOAD_DIR = "uploads/tmp"
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
 
 router = APIRouter(prefix="/Service")
 
@@ -53,28 +57,18 @@ async def add_big_service(
     add_service_id: str = Form(...),
     description: Optional[str] = Form(None),
     # We receive the list of images as actual Files
-    images: List[UploadFile] = File(None), 
+    images: Optional[List[str]] = Form(None), 
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
     vendor = get_current_vendor(current_user.id, db=db)
-    image_urls = []
-
-    if images is not None:
-        # Now 'images' is a real list of file objects we can iterate over
-        for file in images:
-            if file.filename:
-                # This calls your save_file (VPS or S3 logic)
-                path_suffix = f"vendor_{vendor.vendor_id}/services"
-                image_url = save_file(file, folder_path=path_suffix)
-                image_urls.append(image_url)
 
     new_service = service_mdl.Service(
         add_vendor_id=vendor.vendor_id,
         price=price,
         price_history=price_history,
         add_service_id=add_service_id,
-        image_url=image_urls,
+        image_url=images,
         description=description
     )
     response = big_service_mdl.add_service(db, big_service=new_service, add_vendor_id=vendor.vendor_id)
@@ -97,7 +91,7 @@ async def update_service(
     add_service_id: str = Form(...),
     description: Optional[str] = Form(None),
     # Optional: Make images optional so they don't HAVE to upload new ones to change the price
-    images: Optional[List[UploadFile]] = File(None), 
+    images: Optional[List[str]] = Form(None), 
     db: Session = Depends(get_db)
 ):
     # 1. Fetch the existing record
@@ -107,24 +101,11 @@ async def update_service(
 
     # 2. Update basic fields directly#
     existing_service.price_history = price_history  # Keep old price history unless explicitly changed
-    existing_service.price = price
+    existing_service.price = price if price is not None else existing_service.price  # Only update if new price provided
     existing_service.add_service_id = add_service_id
-    existing_service.description = description
+    existing_service.description = description if description is not None else existing_service.description  # Only update if new description provided
     existing_service.add_vendor_id = add_vendor_id
-
-    # 3. Handle Images (The "City" Way - only update if new ones are sent)
-    if images and len(images) > 0:
-        # Check if the first file actually has a filename (FastAPI quirk)
-        if images[0].filename != "":
-            new_image_urls = []
-            for file in images:
-                path_suffix = f"vendor_{add_vendor_id}/services"
-                image_url = save_file(file, folder_path=path_suffix)
-                new_image_urls.append(image_url)
-            
-            # NOTE: This replaces the old list. 
-            # If you want to APPEND, use: existing_service.image_url.extend(new_image_urls)
-            existing_service.image_url = new_image_urls
+    existing_service.image_url = images if images is not None else existing_service.image_url  # Only update if new images provided
 
     # 4. Commit changes
     try:
@@ -192,3 +173,67 @@ async def get_all_price(db:Session=Depends(get_db), current_user: User = Depends
 async def update_price(service_id:str, price:float, db:Session=Depends(get_db)):
     new_price_history = update_price_history(db=db, service_id=service_id, new_price=price)
     return new_price_history
+
+# Uploads section
+@router.post("/upload/init", tags=["Big Service"])
+async def init_upload(current_user: User = Depends(get_current_user)):
+    upload_id = str(uuid.uuid4())
+    file_path = os.path.join(UPLOAD_DIR, upload_id)
+
+    # create empty file
+    with open(file_path, "wb") as f:
+        pass
+
+    return {"uploadId": upload_id}
+
+@router.post("/upload/chunk", tags=["Big Service"])
+async def upload_chunk(
+    request: Request,
+    upload_id: str = Header(...),
+    chunk_index: int = Header(...),
+    current_user: User = Depends(get_current_user)
+):
+    file_path = os.path.join(UPLOAD_DIR, upload_id)
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Upload session not found")
+
+    chunk = await request.body()
+
+    with open(file_path, "ab") as f:
+        f.write(chunk)
+
+    return {"status": "chunk received", "index": chunk_index}
+
+
+@router.post("/upload/complete", tags=["Big Service"])
+async def complete_upload(
+    data: dict,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user)
+):
+    upload_id = data.get("uploadId")
+    temp_path = os.path.join(UPLOAD_DIR, upload_id)
+
+    if not os.path.exists(temp_path):
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    # mark as queued
+    UPLOAD_STATUS[upload_id] = {"status": "queued"}
+
+    # ✅ run in background
+    background_tasks.add_task(process_video_upload, upload_id, temp_path)
+
+    return {
+        "uploadId": upload_id,
+        "status": "processing"
+    }
+
+@router.get("/upload/status/{upload_id}", tags=["Big Service"])
+async def get_upload_status(upload_id: str):
+    status = UPLOAD_STATUS.get(upload_id)
+
+    if not status:
+        raise HTTPException(status_code=404, detail="Upload not found")
+
+    return status
