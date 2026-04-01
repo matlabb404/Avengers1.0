@@ -183,8 +183,7 @@ async def init_upload(current_user: User = Depends(get_current_user)):
     file_path = os.path.join(UPLOAD_DIR, upload_id)
 
     # create empty file
-    with open(file_path, "wb") as f:
-        pass
+    os.makedirs(file_path, exist_ok=True)
 
     return {"uploadId": upload_id}
 
@@ -202,7 +201,7 @@ async def upload_chunk(
 
     chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_index}.part")
 
-    if not os.path.exists(chunk_path):
+    if not os.path.exists(chunk_dir):
         raise HTTPException(status_code=404, detail="Upload session not found")
 
     with open(chunk_path, "wb") as f:
@@ -218,7 +217,10 @@ async def complete_upload(
 ):
     upload_id = data.get("uploadId")
     chunk_dir = os.path.join(UPLOAD_DIR, upload_id)
+    files = os.listdir(chunk_dir)
 
+    if len(files) == 0:
+        raise HTTPException(400, "No chunks uploaded")
     if not os.path.exists(chunk_dir):
         raise HTTPException(status_code=404, detail="Upload not found")
     
@@ -226,10 +228,10 @@ async def complete_upload(
 
     # Merge chunks in correct order
     with open(merged_path, "wb") as output_file:
-        for chunk_file in sorted(os.listdir(chunk_dir), key=lambda x: int(x.split(".")[0])):
+        for chunk_file in sorted(os.listdir(chunk_dir), key=lambda x: int(x.split("_")[1].split(".")[0])):
             chunk_path = os.path.join(chunk_dir, chunk_file)
             with open(chunk_path, "rb") as input_file:
-                output_file.write(input_file.read())
+                shutil.copyfileobj(input_file, output_file)
 
     #cleanuo chunks
     shutil.rmtree(chunk_dir)
