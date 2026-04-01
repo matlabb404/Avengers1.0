@@ -13,7 +13,15 @@ import uuid
 import os
 import time
 
+BASE_STATIC = "static"
 UPLOAD_DIR = "uploads"
+MEDIA_DIR = "static/media"
+VIDEO_DIR = "static/videos"
+THUMB_DIR = "static/videos/thumbnails"
+
+for path in [UPLOAD_DIR, MEDIA_DIR, VIDEO_DIR, THUMB_DIR]:
+    os.makedirs(path, exist_ok=True)
+    
 MAX_AGE = 60 * 60 * 2  # 2 hours
 
 s3_client = boto3.client(
