@@ -1,4 +1,6 @@
 
+import shutil
+
 from app.models.account_model import User
 from app.modules.account_module import get_current_user
 from app.modules.vendor_module import get_current_vendor
@@ -193,18 +195,20 @@ async def upload_chunk(
     chunk_index: int = Header(...),
     current_user: User = Depends(get_current_user)
 ):
-    file_path = os.path.join(UPLOAD_DIR, upload_id)
-
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Upload session not found")
+    chunk_dir = os.path.join(UPLOAD_DIR, upload_id)
+    os.makedirs(chunk_dir, exist_ok=True)
 
     chunk = await request.body()
 
-    with open(file_path, "ab") as f:
+    chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_index}.part")
+
+    if not os.path.exists(chunk_path):
+        raise HTTPException(status_code=404, detail="Upload session not found")
+
+    with open(chunk_path, "wb") as f:
         f.write(chunk)
 
     return {"status": "chunk received", "index": chunk_index}
-
 
 @router.post("/upload/complete", tags=["Big Service"])
 async def complete_upload(
@@ -213,16 +217,28 @@ async def complete_upload(
     current_user: User = Depends(get_current_user)
 ):
     upload_id = data.get("uploadId")
-    temp_path = os.path.join(UPLOAD_DIR, upload_id)
+    chunk_dir = os.path.join(UPLOAD_DIR, upload_id)
 
-    if not os.path.exists(temp_path):
+    if not os.path.exists(chunk_dir):
         raise HTTPException(status_code=404, detail="Upload not found")
+    
+    merged_path = os.path.join(UPLOAD_DIR, f"{upload_id}")
+
+    # Merge chunks in correct order
+    with open(merged_path, "wb") as output_file:
+        for chunk_file in sorted(os.listdir(chunk_dir), key=lambda x: int(x.split(".")[0])):
+            chunk_path = os.path.join(chunk_dir, chunk_file)
+            with open(chunk_path, "rb") as input_file:
+                output_file.write(input_file.read())
+
+    #cleanuo chunks
+    shutil.rmtree(chunk_dir)
 
     # mark as queued
     UPLOAD_STATUS[upload_id] = {"status": "queued"}
 
     # ✅ run in background
-    background_tasks.add_task(process_video_upload, upload_id, temp_path)
+    background_tasks.add_task(process_video_upload, upload_id, merged_path)
 
     return {
         "uploadId": upload_id,
