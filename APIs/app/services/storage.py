@@ -151,7 +151,7 @@ class TempFileWrapper:
     def __init__(self, path, upload_id, content_type):
         ext = Path(path).suffix or ".bin"
         self.file = open(path, "rb")
-        self.filename = f"{upload_id}{ext}"
+        self.filename = f"{upload_id}"
         self.content_type = content_type
 
     def close(self):
