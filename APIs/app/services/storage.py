@@ -133,7 +133,7 @@ def generate_thumbnail(video_path: str, upload_id: str) -> str:
     thumbnail_path = thumbnail_dir / f"{upload_id}.jpg"
 
     command = [
-        "ffmpeg",
+        "/usr/bin/ffmpeg",
         "-i", video_path,
         "-ss", "00:00:01.000",  # 👈 capture at 1 second
         "-vframes", "1",
