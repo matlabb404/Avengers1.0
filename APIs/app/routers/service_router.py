@@ -201,9 +201,6 @@ async def upload_chunk(
 
     chunk_path = os.path.join(chunk_dir, f"chunk_{chunk_index}.part")
 
-    if not os.path.exists(chunk_dir):
-        raise HTTPException(status_code=404, detail="Upload session not found")
-
     with open(chunk_path, "wb") as f:
         f.write(chunk)
 
@@ -224,7 +221,7 @@ async def complete_upload(
     if not os.path.exists(chunk_dir):
         raise HTTPException(status_code=404, detail="Upload not found")
     
-    merged_path = os.path.join(UPLOAD_DIR, f"{upload_id}")
+    merged_path = os.path.join(UPLOAD_DIR, f"{upload_id}.mp4")  # Assuming mp4, can be dynamic based on metadata 
 
     # Merge chunks in correct order
     with open(merged_path, "wb") as output_file:
