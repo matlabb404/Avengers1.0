@@ -214,7 +214,7 @@ async def complete_upload(
 ):
     upload_id = data.get("uploadId")
     chunk_dir = os.path.join(UPLOAD_DIR, upload_id)
-    files = os.listdir(chunk_dir)
+    files = sorted(os.listdir(chunk_dir),key=lambda x: int(x.split("_")[1].split(".")[0]))
 
     if len(files) == 0:
         raise HTTPException(400, "No chunks uploaded")
@@ -225,7 +225,7 @@ async def complete_upload(
 
     # Merge chunks in correct order
     with open(merged_path, "wb") as output_file:
-        for chunk_file in sorted(os.listdir(chunk_dir), key=lambda x: int(x.split("_")[1].split(".")[0])):
+        for chunk_file in files:
             chunk_path = os.path.join(chunk_dir, chunk_file)
             with open(chunk_path, "rb") as input_file:
                 shutil.copyfileobj(input_file, output_file)

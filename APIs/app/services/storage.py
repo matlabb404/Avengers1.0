@@ -10,8 +10,6 @@ from pathlib import Path
 from PIL import Image
 import time
 import uuid
-import os
-import time
 
 BASE_STATIC = "static"
 UPLOAD_DIR = "uploads"
@@ -143,7 +141,7 @@ def generate_thumbnail(video_path: str, upload_id: str) -> str:
         str(thumbnail_path)
     ]
 
-    result = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, capture_output=True, timeout=30)
+    result = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
     if result.returncode != 0:
         raise Exception(f"FFmpeg failed: {result.stderr.decode()}")
 
@@ -151,8 +149,9 @@ def generate_thumbnail(video_path: str, upload_id: str) -> str:
 
 class TempFileWrapper:
     def __init__(self, path, upload_id, content_type):
+        ext = Path(path).suffix or ".bin"
         self.file = open(path, "rb")
-        self.filename = f"{upload_id}.bin"
+        self.filename = f"{upload_id}{ext}"
         self.content_type = content_type
 
     def close(self):
@@ -184,9 +183,10 @@ def generate_image_sizes(image_path, upload_id):
     }
 
     urls = {}
+    original = Image.open(image_path)
 
     for name, size in sizes.items():
-        img = Image.open(image_path)
+        img = original.copy()
         img.thumbnail(size)
 
         path = f"static/media/{upload_id}_{name}.jpg"
@@ -196,12 +196,12 @@ def generate_image_sizes(image_path, upload_id):
 
     return urls
 
-now = time.time()
+def cleanup_uploads():
+    now = time.time()
 
-for file in os.listdir(UPLOAD_DIR):
-    path = os.path.join(UPLOAD_DIR, file)
+    for file in os.listdir(UPLOAD_DIR):
+        path = os.path.join(UPLOAD_DIR, file)
 
-    if os.path.isfile(path):
-        if now - os.path.getmtime(path) > MAX_AGE:
-            os.remove(path)
-            print(f"Deleted stale upload: {path}")
+        if os.path.isfile(path):
+            if now - os.path.getmtime(path) > MAX_AGE:
+                os.remove(path)
