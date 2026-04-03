@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 from PIL import Image
 import time
+import magic
 import uuid
 
 BASE_STATIC = "static"
@@ -80,8 +81,8 @@ def process_video_upload(upload_id: str, temp_path: str):
     try:
         UPLOAD_STATUS[upload_id] = {"status": "processing"}
 
-        # Basic detection (improve later if needed)
-        content_type = "image/jpeg" if (temp_path.endswith(".png") or temp_path.endswith(".jpg") or temp_path.endswith(".jpeg")) else "video/mp4"
+        mime = magic.Magic(mime=True)
+        content_type = mime.from_file(temp_path)
 
         temp_file = TempFileWrapper(temp_path, upload_id, content_type)
 
