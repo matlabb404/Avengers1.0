@@ -40,6 +40,11 @@ def save_file(file, folder_path: str) -> str:
     if not ext:
         mime_type = getattr(file, "content_type", None)
         ext = mimetypes.guess_extension(mime_type) if mime_type else ".bin"
+    
+    if ext == ".bin" and mime_type.startswith("image/"):
+        ext = ".jpg"  # default to jpg for images without extension 
+    elif ext == ".bin" and mime_type.startswith("video/"):
+        ext = ".mp4"  # default to mp4 for videos without extension
 
     file_name += ext
 
