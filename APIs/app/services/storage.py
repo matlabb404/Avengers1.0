@@ -81,7 +81,7 @@ def process_video_upload(upload_id: str, temp_path: str):
         UPLOAD_STATUS[upload_id] = {"status": "processing"}
 
         # Basic detection (improve later if needed)
-        content_type = "video/mp4" if temp_path.endswith(".mp4") else "image/jpeg"
+        content_type = "image/jpeg" if (temp_path.endswith(".png") or temp_path.endswith(".jpg") or temp_path.endswith(".jpeg")) else "video/mp4"
 
         temp_file = TempFileWrapper(temp_path, upload_id, content_type)
 
