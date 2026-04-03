@@ -97,7 +97,15 @@ def process_video_upload(upload_id: str, temp_path: str):
 
             if local_path:
                 thumbnail = generate_thumbnail(local_path, upload_id)
-                media_response["thumbnail"] = thumbnail
+
+                # 🔍 verify file exists on disk
+                full_fs_path = thumbnail.replace("/static", "static")
+                
+                if not os.path.exists(full_fs_path):
+                    raise Exception(f"Thumbnail not found at {full_fs_path}")
+
+                media_response["thumbnail"] = full_fs_path
+                media_response["original"] = media_response["original"].replace("/static", "static")
 
         # 🖼 IMAGE
         elif content_type.startswith("image/"):
@@ -108,6 +116,7 @@ def process_video_upload(upload_id: str, temp_path: str):
                 media_response["sizes"] = sizes
                 media_response["thumbnail"] = sizes.get("small")
                 media_response["original"] = sizes.get("large")
+                media_response["original"] = media_response["original"].replace("/static", "static")
 
         temp_file.close()
 
@@ -141,9 +150,15 @@ def generate_thumbnail(video_path: str, upload_id: str) -> str:
         str(thumbnail_path)
     ]
 
-    result = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+    result = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+    
     if result.returncode != 0:
-        raise Exception(f"FFmpeg failed: {result.stderr.decode()}")
+        print(f"FFmpeg failed: {result.stderr}")
+    
+    
+    # ❗ verify file was actually created
+    if not thumbnail_path.exists():
+        raise Exception("Thumbnail generation failed")
 
     return f"/static/videos/thumbnails/{upload_id}.jpg"
 
