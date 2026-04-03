@@ -30,36 +30,34 @@ def get_service(db: Session, service_id: str):
     db_servce = db.query(service_model.Service, Vendor, service_model.price_history, service_model.Add_Service).join(service_model.Add_Service, service_model.Service.add_service_id == service_model.Add_Service.id).join(Vendor, service_model.Service.add_vendor_id == Vendor.vendor_id).join(service_model.price_history, service_model.Service.price_history ==  service_model.price_history.id).filter(service_model.Service.id == service_id).first()
     if not db_servce:
         raise HTTPException(status_code=404, detail="Service not found")
-    output = []
-
-    for service, vendor, price_history, add_service in db_servce:
-        output.append({
-            "service": {
-                "id": service.id,
-                "price": service.price,
-                "description": service.description,
-                "image_url": service.image_url,
-                "add_vendor_id": service.add_vendor_id,
-                "add_service_id": service.add_service_id
-            },
-            "vendor": {
-                "vendor_id": vendor.vendor_id,
-                "first_name": vendor.first_name,
-                "last_name": vendor.last_name,
-                "business_name": vendor.business_name,
-                "city": vendor.city,
-                "country": vendor.country
-            },
-            "add_service": {
-                "id": add_service.id,
-                "service_name": add_service.service_name
-            },
-            "price_history": {
-                "id": price_history.id,
-                "price": price_history.price
-            }
-        })
-    return output
+    
+    service, vendor, price_history, add_service = db_servce
+    return {
+        "service": {
+            "id": service.id,
+            "price": service.price,
+            "description": service.description,
+            "image_url": service.image_url,
+            "add_vendor_id": service.add_vendor_id,
+            "add_service_id": service.add_service_id
+        },
+        "vendor": {
+            "vendor_id": vendor.vendor_id,
+            "first_name": vendor.first_name,
+            "last_name": vendor.last_name,
+            "business_name": vendor.business_name,
+            "city": vendor.city,
+            "country": vendor.country
+        },
+        "add_service": {
+            "id": add_service.id,
+            "service_name": add_service.service_name
+        },
+        "price_history": {
+            "id": price_history.id,
+            "price": price_history.price
+        }
+}
 
 def update_service(db: Session, service_id: str, update_data: ServiceUpdate):
     db_service = db.query(service_model.Service).filter(service_model.Service.id == service_id).first()
@@ -73,7 +71,6 @@ def update_service(db: Session, service_id: str, update_data: ServiceUpdate):
     else:
         return None  # Service with the given ID not found
     
-
 def delete_service(db: Session, service_id: str):
     db_service = db.query(service_model.Service).filter(service_model.Service.id == service_id).first()
     if db_service:
