@@ -28,7 +28,7 @@ def add_service(db: Session, big_service: big_services_schema.ServiceUpdate, add
 
 def get_service(db: Session, service_id: str):
     db_servce = db.query(service_model.Service, Vendor, service_model.price_history, service_model.Add_Service).join(service_model.Add_Service, service_model.Service.add_service_id == service_model.Add_Service.id).join(Vendor, service_model.Service.add_vendor_id == Vendor.vendor_id).join(service_model.price_history, service_model.Service.price_history ==  service_model.price_history.id).filter(service_model.Service.id == service_id).first()
-    if not service:
+    if not db_servce:
         raise HTTPException(status_code=404, detail="Service not found")
     output = []
 
