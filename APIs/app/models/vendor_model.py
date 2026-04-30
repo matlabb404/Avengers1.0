@@ -1,5 +1,5 @@
 from app.config.db.postgresql import Base
-from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, text, Date, Enum, UUID, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, Time, Date, Enum, UUID, ForeignKey, JSON, UniqueConstraint
 from app.schemas.vendor_Schema import Gender
 import uuid 
 from sqlalchemy.orm import relationship
@@ -45,7 +45,42 @@ class Scheduling_(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     schedule_vendor_id = Column(UUID(as_uuid=True), ForeignKey('Vendor.vendor_id'))
-    days = Column(String) #day(monday,tuesday) and times
-    exceptions = Column(Date)
+    days = Column(JSON) #day(monday,tuesday) and times worked everyweek
+    start_time = Column(Time)
+    end_time = Column(Time)
+    interval_minutes = Column(Integer)
+    capacity = Column(Integer)
+
+# weekly rules ✅
+# working hours ✅
+# capacity ✅
 
     schedules = relationship("Vendor", back_populates = "schedule")
+
+class ScheduleException(Base):
+    __tablename__ = "schedule_exceptions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    vendor_id = Column(UUID(as_uuid=True), ForeignKey("Vendor.vendor_id"))
+
+    date = Column(Date, nullable=False)
+
+    # optional overrides
+    is_closed = Column(Boolean, default=False)
+    start_time = Column(Time, nullable=True)
+    end_time = Column(Time, nullable=True)
+    capacity = Column(Integer, nullable=True)
+
+# Full-day holiday	✅ is_closed=True
+# Late opening	✅ override start_time
+# Early closing	✅ override end_time
+# Special busy day	✅ override capacity
+# Multiple exceptions	✅ multiple rows
+
+    reason = Column(String, nullable=True)
+    
+    vendor = relationship("Vendor")
+    __table_args__ = (
+        UniqueConstraint("vendor_id", "date", name="unique_exception_per_day"),
+    )

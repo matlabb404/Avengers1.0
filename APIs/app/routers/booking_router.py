@@ -34,23 +34,51 @@ def get_secure_string_customer():
 
 times = [f"{hour:02}:{minute:02}" for hour in range(24) for minute in (0, 30)]
 
-@router.post("/Add_booking", tags=["Booking"])
-async def add_booking( book_date_dropdown: booking_schema.BookingDates, book: booking_schema.BookingSchema, db:Session=Depends(get_db),  time : str = Query(..., description="Select a time", enum=times),current_user : User = Depends(get_current_user) ):
-    # Combine date and time
-    combined_datetime_str = f"{str(book_date_dropdown).split(',', 1)[1]} {str(time)}" 
-    #customer_id = redis_client.get(get_secure_string_customer()).decode('utf-8')
-    # Parse the combined string into a datetime object
-    timedate = dtme.strptime(combined_datetime_str,"%Y-%m-%d %H:%M")
-    responce = booking_mdl.add_booking(db=db, book=book, timedate=timedate,  user_id_request=current_user.id)
-    return responce
+@router.post("/add_booking", tags=["Booking"])
+async def add_booking(
+    book: booking_schema.BookingCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return booking_mdl.add_booking(
+        db=db,
+        book=book,
+        user_id_request=current_user.id
+    )
 
-@router.get("/Get_booking", tags=["Booking"])
+@router.get("/get_booking", tags=["Booking"])
 async def get_booking_by_user(db:Session= Depends(get_db), current_user : User = Depends(get_current_user)):
     responce = booking_mdl.get_all_booking_by_user(db=db, user_id=current_user.id)
     return responce
 
 
-@router.delete("/delete_booking", tags=["Booking"])
-async def delete_booking_by_user(db:Session=Depends(get_db), booking_id_request = str,  current_user:User = Depends(get_current_user)):
-    responce = booking_mdl.delete_booking(db=db, booking_id_request=booking_id_request, user_id_request=current_user.id )
-    return responce
+@router.delete("/delete_booking/{booking_id}", tags=["Booking"])
+async def delete_booking_by_user(
+    booking_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return booking_mdl.cancel_booking(
+        db=db,
+        booking_id_request=booking_id,
+        user_id_request=current_user.id
+    )
+
+@router.get("/availability", tags=["Booking"])
+def get_availability(
+    service_id: UUID,
+    date: datetime.date,
+    db: Session = Depends(get_db)
+):
+    return booking_mdl.get_service_availability(db, service_id, date)
+
+@router.get("/unavailability", tags=["Booking"])
+def get_unavailability(
+    service_id: UUID,
+    start_date: datetime.date,
+    end_date: datetime.date,
+    db: Session = Depends(get_db)
+):
+    return booking_mdl.get_service_unavailability(
+        db, service_id, start_date, end_date
+    )
