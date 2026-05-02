@@ -17,4 +17,5 @@ botocore
 ffmpeg
 pillow
 uuid
+python-magic
 # subprocess
