@@ -7,6 +7,7 @@ from app.config.db.postgresql import SessionLocal
 from app.models.vendor_model import Vendor
 from sqlalchemy.dialects import postgresql
 from uuid import UUID
+from fastapi import HTTPException
 
 
 def add_vendor(db:Session, vendor:vendor_Schema.VendorCreateBase, vendor_emaail : str, user_id_ :str ):
@@ -93,3 +94,50 @@ def __schedule(db:Session, schedule_vendor_id: UUID, schedulebase:vendor_Schema.
 def get_current_vendor(user_id: str, db: Session ):
     vendor = db.query(vendor_model.Vendor).filter(vendor_model.Vendor.user_id == user_id).first()
     return vendor
+
+def get_schedule(db: Session, vendor_id):
+    return db.query(vendor_model.Scheduling_).filter(
+        vendor_model.Scheduling_.schedule_vendor_id == vendor_id
+    ).first()
+
+
+def create_or_update_schedule(db: Session, vendor_id, data: dict):
+    schedule = get_schedule(db, vendor_id)
+
+    if schedule:
+        for key, value in data.items():
+            setattr(schedule, key, value)
+    else:
+        schedule = vendor_model.Scheduling_(schedule_vendor_id=vendor_id, **data)
+        db.add(schedule)
+
+    db.commit()
+    db.refresh(schedule)
+    return schedule
+
+
+def get_exceptions(db: Session, vendor_id, start_date, end_date):
+    return db.query(vendor_model.ScheduleException).filter(
+        vendor_model.ScheduleException.vendor_id == vendor_id,
+        vendor_model.ScheduleException.date >= start_date,
+        vendor_model.ScheduleException.date <= end_date
+    ).all()
+
+
+def create_exception(db: Session, data: dict):
+    exception = vendor_model.ScheduleException(**data)
+    db.add(exception)
+    db.commit()
+    db.refresh(exception)
+    return exception
+
+
+def delete_exception(db: Session, exception_id):
+    obj = db.query(vendor_model.ScheduleException).get(exception_id)
+
+    if not obj:
+        raise HTTPException(status_code=404, detail="Exception not found")
+
+    db.delete(obj)
+    db.commit()
+    return {"status": "deleted"}

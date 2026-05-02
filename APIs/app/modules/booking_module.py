@@ -14,6 +14,7 @@ import datetime
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from collections import Counter
+from typing import List
 
 def add_booking(db: Session, book: booking_schema.BookingCreate, user_id_request: str):
     try:
@@ -80,7 +81,6 @@ def add_booking(db: Session, book: booking_schema.BookingCreate, user_id_request
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=400, detail="Duplicate booking")
-
 
 def get_all_booking_by_user(db: Session, user_id: int):
     results = (
@@ -325,3 +325,57 @@ def get_service_unavailability(
         current_date += datetime.timedelta(days=1)
 
     return result
+
+def generate_slots(
+    schedule: vendor_model.Scheduling_,
+    exceptions: List[vendor_model.ScheduleException],
+    start_date: datetime.date,
+    end_date: datetime.date
+):
+    results = []
+    current = start_date
+
+    exception_map = {e.date: e for e in exceptions}
+
+    while current <= end_date:
+        weekday = current.strftime("%A").lower()
+
+        if weekday not in schedule.days:
+            current += datetime.timedelta(days=1)
+            continue
+
+        exception = exception_map.get(current)
+
+        if exception and exception.is_closed:
+            current += datetime.timedelta(days=1)
+            continue
+
+        start_time = schedule.start_time
+        end_time = schedule.end_time
+        capacity = schedule.capacity
+
+        if exception:
+            if exception.start_time:
+                start_time = exception.start_time
+            if exception.end_time:
+                end_time = exception.end_time
+            if exception.capacity:
+                capacity = exception.capacity
+
+        current_dt = datetime.combine(current, start_time)
+        end_dt = datetime.combine(current, end_time)
+
+        while current_dt < end_dt:
+            slot_end = current_dt + datetime.timedelta(minutes=schedule.interval_minutes)
+
+            results.append({
+                "start": current_dt,
+                "end": slot_end,
+                "capacity": capacity
+            })
+
+            current_dt = slot_end
+
+        current += datetime.timedelta(days=1)
+
+    return results
