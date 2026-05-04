@@ -14,7 +14,6 @@ import hashlib,secrets,string
 
 router = APIRouter(prefix="/Booking")
 
-
 def get_db():
     db = SessionLocal()
     try:
@@ -50,7 +49,6 @@ async def add_booking(
 async def get_booking_by_user(db:Session= Depends(get_db), current_user : User = Depends(get_current_user)):
     responce = booking_mdl.get_all_booking_by_user(db=db, user_id=current_user.id)
     return responce
-
 
 @router.delete("/delete_booking/{booking_id}", tags=["Booking"])
 async def delete_booking_by_user(

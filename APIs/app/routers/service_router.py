@@ -11,7 +11,7 @@ import json
 from typing import Annotated
 import app.modules.big_services_module as big_service_mdl
 from app.schemas import big_services_schema
-from app.modules.service_module import add_s, get_all_services, get_allprice_history, add_price_history, get_price_history, update_price_history
+from app.modules.service_module import add_s, update_s, delete_s, get_all_services, get_allprice_history, add_price_history, get_price_history, update_price_history
 import app.models.service_model as service_mdl
 from app.schemas import services_schema
 from app.config.db.postgresql import SessionLocal
@@ -36,19 +36,31 @@ def get_db():
 
 
 @router.post("/Add_service", tags=["Service"])
-async def add_service(old_service: services_schema.ServicesDropDownOption, new_service: str, db:Session=Depends(get_db)):
-    service = old_service
-    if new_service != "None":
-        service = new_service
+async def add_service(service: str, interval_minutes: int, db:Session=Depends(get_db), current_user: User = Depends(get_current_user)):
     lowercase = service.lower()
     nospace = lowercase.replace(" ","")
     strid = nospace
-    responce = add_s(db=db, strid= strid,service=service)
+    vendor = get_current_vendor(current_user.id, db=db)
+    responce = add_s(db=db, strid= strid, service=service, interval_minutes=interval_minutes, vendor_id=vendor.vendor_id)
     return responce
+
+@router.put("/update_small_service", tags=["Service"])
+async def update_small_service(strid: str, service: str, interval_minutes: int, db:Session=Depends(get_db), current_user: User = Depends(get_current_user)):
+    vendor = get_current_vendor(current_user.id, db=db)
+    return update_s(db=db, strid= strid, service=service, interval_minutes=interval_minutes, vendor_id = vendor.vendor_id)
+
+@router.delete("/delete_small_service", tags=["Service"])
+async def delete_small_service(strid: str, db:Session=Depends(get_db), current_user: User = Depends(get_current_user)):
+    vendor = get_current_vendor(current_user.id, db=db)
+    return delete_s(db=db, strid= strid,vendor_id = vendor.vendor_id)
 
 @router.get("/get_all_services", tags=["Service"])
 async def get_all_small_services(db:Session=Depends(get_db)):
     return get_all_services(db=db)
+
+@router.get("/get_all_services_vendor", tags=["Service"])
+async def get_all_small_services(db:Session=Depends(get_db), vendor_id=str):
+    return get_all_services(db=db, vendor_id=vendor_id)
 
 # Big Service CRUD operations
 @router.post("/Add_big_service", tags=["Big Service"])
@@ -118,16 +130,6 @@ async def update_service(
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     return existing_service
-
-'''
-
-@router.delete("/delete_service/{service_id}", tags=["Big Service"])
-async def delete_service(service_id: str, db: Session = Depends(get_db)):
-    db_service = big_service_mdl.get_service(db=db, service_id=service_id)
-    if db_service is None:
-        return "Not Found"
-    return big_service_mdl.delete_service(db=db, service=db_service)
-'''
 
 @router.delete("/delete_service", tags=["Big Service"])
 async def delete_service(service_id: str, db: Session = Depends(get_db)):

@@ -4,12 +4,13 @@ from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, text, Date, 
 from sqlalchemy.orm import relationship
 from app.schemas.services_schema import ServicesDropDownOption
 
-
 class Add_Service(Base):
    __tablename__ = "add_service"
 
    id = Column(String, primary_key=True)
    service_name = Column(String)
+   interval_minutes = Column(Integer)
+   vendor_id = Column(String)
    
    service_relation = relationship("Service", back_populates="add_service", uselist=False)
 

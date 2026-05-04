@@ -100,7 +100,6 @@ def get_schedule(db: Session, vendor_id):
         vendor_model.Scheduling_.schedule_vendor_id == vendor_id
     ).first()
 
-
 def create_or_update_schedule(db: Session, vendor_id, data: dict):
     schedule = get_schedule(db, vendor_id)
 
@@ -115,7 +114,6 @@ def create_or_update_schedule(db: Session, vendor_id, data: dict):
     db.refresh(schedule)
     return schedule
 
-
 def get_exceptions(db: Session, vendor_id, start_date, end_date):
     return db.query(vendor_model.ScheduleException).filter(
         vendor_model.ScheduleException.vendor_id == vendor_id,
@@ -123,14 +121,12 @@ def get_exceptions(db: Session, vendor_id, start_date, end_date):
         vendor_model.ScheduleException.date <= end_date
     ).all()
 
-
 def create_exception(db: Session, data: dict):
     exception = vendor_model.ScheduleException(**data)
     db.add(exception)
     db.commit()
     db.refresh(exception)
     return exception
-
 
 def delete_exception(db: Session, exception_id):
     obj = db.query(vendor_model.ScheduleException).get(exception_id)

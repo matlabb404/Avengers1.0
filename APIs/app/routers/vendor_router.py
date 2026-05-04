@@ -105,12 +105,10 @@ async def get_availability(
 
     return booking_module.generate_slots(schedule, exceptions, start_date, end_date)
 
-
 # ---- Exceptions ----
 @router.post("/add_exception", tags=["Vendor"])
 def create_exception_endpoint(data: dict, db: Session = Depends(get_db)):
     return vendor_mdl.create_exception(db, data)
-
 
 @router.get("/{vendor_id}/exceptions", tags=["Vendor"])
 def read_exceptions(
@@ -120,7 +118,6 @@ def read_exceptions(
     db: Session = Depends(get_db)
 ):
     return vendor_mdl.get_exceptions(db, vendor_id, start_date, end_date)
-
 
 @router.delete("/{exception_id}/delete_exception", tags=["Vendor"])
 def delete_exception_endpoint(

@@ -136,6 +136,8 @@ def get_service_availability(db: Session, service_id: UUID, selected_date: datet
     service = db.query(Service).filter(Service.id == service_id).first()
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
+    
+    add_serv = db.query(Add_Service).filter(Add_Service.id == service.add_service_id).first()
 
     schedule = db.query(vendor_model.Scheduling_).filter(
         vendor_model.Scheduling_.schedule_vendor_id == service.add_vendor_id
@@ -143,7 +145,7 @@ def get_service_availability(db: Session, service_id: UUID, selected_date: datet
     if not schedule:
         return []
 
-    interval = schedule.interval_minutes
+    interval = add_serv.interval_minutes
 
     weekday = selected_date.strftime("%a").lower()
     if weekday not in [d.lower() for d in schedule.days]:
@@ -241,6 +243,8 @@ def get_service_unavailability(
     service = db.query(Service).filter(Service.id == service_id).first()
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
+        
+    add_serv = db.query(Add_Service).filter(Add_Service.id == service.add_service_id).first()
 
     schedule = db.query(vendor_model.Scheduling_).filter(
         vendor_model.Scheduling_.schedule_vendor_id == service.add_vendor_id
@@ -284,7 +288,7 @@ def get_service_unavailability(
         start_time = exception.start_time if exception and exception.start_time else schedule.start_time
         end_time = exception.end_time if exception and exception.end_time else schedule.end_time
         capacity = exception.capacity if exception and exception.capacity else schedule.capacity
-        interval = schedule.interval_minutes
+        interval = add_serv.interval_minutes
 
         start_dt = datetime.datetime.combine(current_date, start_time).replace(tzinfo=datetime.timezone.utc)
         end_dt = datetime.datetime.combine(current_date, end_time).replace(tzinfo=datetime.timezone.utc)

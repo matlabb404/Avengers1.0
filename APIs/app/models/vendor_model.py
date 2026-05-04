@@ -48,7 +48,6 @@ class Scheduling_(Base):
     days = Column(JSON) #day(monday,tuesday) and times worked everyweek
     start_time = Column(Time)
     end_time = Column(Time)
-    interval_minutes = Column(Integer)
     capacity = Column(Integer)
 
 # weekly rules ✅
@@ -71,6 +70,7 @@ class ScheduleException(Base):
     start_time = Column(Time, nullable=True)
     end_time = Column(Time, nullable=True)
     capacity = Column(Integer, nullable=True)
+    reason = Column(String, nullable=True)
 
 # Full-day holiday	✅ is_closed=True
 # Late opening	✅ override start_time
@@ -78,8 +78,6 @@ class ScheduleException(Base):
 # Special busy day	✅ override capacity
 # Multiple exceptions	✅ multiple rows
 
-    reason = Column(String, nullable=True)
-    
     vendor = relationship("Vendor")
     __table_args__ = (
         UniqueConstraint("vendor_id", "date", name="unique_exception_per_day"),
