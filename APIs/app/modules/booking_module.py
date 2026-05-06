@@ -131,7 +131,7 @@ def cancel_booking(db:Session, user_id_request:str, booking_id_request : str):
     db.commit()
     return "Booking deleted Successfully"
 
-def get_service_availability(db: Session, service_id: UUID, selected_date: datetime.date):
+def get_service_availability(db: Session, service_id: UUID, selected_date: datetime.date): #To get timeslots for that day, have to 
 
     service = db.query(Service).filter(Service.id == service_id).first()
     if not service:
@@ -140,7 +140,7 @@ def get_service_availability(db: Session, service_id: UUID, selected_date: datet
     add_serv = db.query(Add_Service).filter(Add_Service.id == service.add_service_id).first()
 
     schedule = db.query(vendor_model.Scheduling_).filter(
-        vendor_model.Scheduling_.schedule_vendor_id == service.add_vendor_id
+        vendor_model.Scheduling_.schedule_vendor_id == service.add_vendor_id, vendor_model.Scheduling_.service_id == add_serv.id
     ).first()
     if not schedule:
         return []
@@ -153,7 +153,8 @@ def get_service_availability(db: Session, service_id: UUID, selected_date: datet
 
     exception = db.query(vendor_model.ScheduleException).filter(
         vendor_model.ScheduleException.vendor_id == service.add_vendor_id,
-        vendor_model.ScheduleException.date == selected_date
+        vendor_model.ScheduleException.date == selected_date,
+        vendor_model.ScheduleException.service_id == add_serv.id
     ).first()
 
     if exception:
@@ -247,7 +248,8 @@ def get_service_unavailability(
     add_serv = db.query(Add_Service).filter(Add_Service.id == service.add_service_id).first()
 
     schedule = db.query(vendor_model.Scheduling_).filter(
-        vendor_model.Scheduling_.schedule_vendor_id == service.add_vendor_id
+        vendor_model.Scheduling_.schedule_vendor_id == service.add_vendor_id,
+        vendor_model.Scheduling_.service_id == add_serv.id
     ).first()
 
     if not schedule:
@@ -273,7 +275,8 @@ def get_service_unavailability(
         # 🔍 Check exception
         exception = db.query(vendor_model.ScheduleException).filter(
             vendor_model.ScheduleException.vendor_id == service.add_vendor_id,
-            vendor_model.ScheduleException.date == current_date
+            vendor_model.ScheduleException.date == current_date,
+            vendor_model.ScheduleException.service_id == add_serv.id
         ).first()
 
         if exception and exception.is_closed:

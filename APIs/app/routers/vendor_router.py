@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from uuid import UUID
-from typing import Annotated
+from typing import Optional
 import app.modules.vendor_module as vendor_mdl
 import app.modules.booking_module as booking_module
 import app.models.account_model as acct_mdl
@@ -12,7 +12,6 @@ from app.schemas.vendor_Schema import Gender
 from app.models.account_model import User
 from app.modules.account_module import get_current_user
 from datetime import timedelta, date
-import hashlib,secrets,string
 
 router = APIRouter(prefix="/Vendor")
 
@@ -70,58 +69,143 @@ async def get_gender_vendors(gender:Gender):
     gender_vendors = vendor_mdl.get_gender_vendors(gender)
     return gender_vendors
 
-# ---- Scheduling ---- 
-@router.get("/get_schedule/{vendor_id}", tags=["Vendor"])
-async def read_schedule(vendor_id: str, db: Session = Depends(get_db)):
-    schedule = vendor_mdl.get_schedule(db, vendor_id)
 
-    if not schedule:
-        raise HTTPException(status_code=404, detail="Schedule not found")
+# ============ SCHEDULE ENDPOINTS ============
 
-    return schedule
-
-@router.post("/schedule/{vendor_id}", tags=["Vendor"])
-async def upsert_schedule(
+@router.post("/{vendor_id}/schedule", tags=["Scheduling"], response_model=vendor_Schema.ScheduleResponse)
+async def create_or_update_schedule(
     vendor_id: str,
-    data: dict,
+    schedule: vendor_Schema.ScheduleCreate,
     db: Session = Depends(get_db)
 ):
-    return vendor_mdl.create_or_update_schedule(db, vendor_id, data)
+    """
+    Create or update schedule (UPSERT).
+    Use service_id="all" for default schedule.
+    Use specific UUID for service-specific schedule.
+    """
+    return vendor_mdl.upsert_schedule(db, vendor_id, schedule)
 
-# ---- Availability ----
-@router.get("/{vendor_id}/availability", tags=["Vendor"])
-async def get_availability(
+@router.patch("/{vendor_id}/schedule/{service_id}", tags=["Scheduling"])
+async def update_schedule(
+    vendor_id: str,
+    service_id: str,
+    update: vendor_Schema.ScheduleUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Partially update existing schedule
+    """
+    return vendor_mdl.update_schedule(db, vendor_id, service_id, update)
+
+@router.get("/{vendor_id}/schedule", tags=["Scheduling"])
+async def get_schedules(
+    vendor_id: str,
+    service_id: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Get schedule(s).
+    If service_id provided: returns that specific schedule (or falls back to "all")
+    If no service_id: returns all schedules for the vendor
+    """
+    if service_id:
+        schedule = vendor_mdl.get_schedule_for_service(db, vendor_id, service_id)
+        if not schedule:
+            raise HTTPException(status_code=404, detail="Schedule not found")
+        return schedule
+    else:
+        return vendor_mdl.get_all_schedules(db, vendor_id)
+
+@router.delete("/{vendor_id}/schedule/{service_id}", tags=["Scheduling"])
+async def delete_schedule(
+    vendor_id: str,
+    service_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Delete service-specific schedule (reverts to default "all" schedule)
+    Cannot delete "all" schedule - update it instead
+    """
+    return vendor_mdl.delete_schedule(db, vendor_id, service_id)
+
+# ============ EXCEPTION ENDPOINTS ============
+
+@router.post("/{vendor_id}/exceptions", tags=["Scheduling"], response_model=vendor_Schema.ExceptionResponse)
+async def create_exception(
+    vendor_id: str,
+    exception: vendor_Schema.ExceptionCreate,
+    db: Session = Depends(get_db)
+):
+    """
+    Create schedule exception
+    """
+    return vendor_mdl.create_exception(db, vendor_id, exception)
+
+@router.get("/{vendor_id}/exceptions", tags=["Scheduling"])
+async def get_exceptions(
     vendor_id: str,
     start_date: date,
     end_date: date,
+    service_id: str = "all",
     db: Session = Depends(get_db)
 ):
-    schedule = vendor_mdl.get_schedule(db, vendor_id)
+    """
+    Get exceptions with hierarchy (service-specific overrides "all")
+    """
+    return vendor_mdl.get_exceptions_for_service(
+        db, vendor_id, start_date, end_date, service_id
+    )
 
-    if not schedule:
-        return []
-
-    exceptions = vendor_mdl.get_exceptions(db, vendor_id, start_date, end_date)
-
-    return booking_module.generate_slots(schedule, exceptions, start_date, end_date)
-
-# ---- Exceptions ----
-@router.post("/add_exception", tags=["Vendor"])
-def create_exception_endpoint(data: dict, db: Session = Depends(get_db)):
-    return vendor_mdl.create_exception(db, data)
-
-@router.get("/{vendor_id}/exceptions", tags=["Vendor"])
-def read_exceptions(
-    vendor_id: str,
-    start_date: date,
-    end_date: date,
+@router.put("/exceptions/{exception_id}", tags=["Scheduling"])
+async def update_exception(
+    exception_id: str,
+    update: vendor_Schema.ExceptionBase,
     db: Session = Depends(get_db)
 ):
-    return vendor_mdl.get_exceptions(db, vendor_id, start_date, end_date)
+    """
+    Update existing exception
+    """
+    return vendor_mdl.update_exception(db, exception_id, update)
 
-@router.delete("/{exception_id}/delete_exception", tags=["Vendor"])
-def delete_exception_endpoint(
+@router.delete("/exceptions/{exception_id}", tags=["Scheduling"])
+async def delete_exception(
     exception_id: str,
     db: Session = Depends(get_db)
 ):
+    """
+    Delete exception
+    """
     return vendor_mdl.delete_exception(db, exception_id)
+
+@router.post("/{vendor_id}/cleanup-exceptions", tags=["Scheduling"])
+async def cleanup_old_exceptions(
+    vendor_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually trigger cleanup of past exceptions
+    """
+    return vendor_mdl.cleanup_past_exceptions(db, vendor_id)
+
+# ============ AVAILABILITY ENDPOINT ============
+
+@router.get("/{vendor_id}/availability", tags=["Scheduling"])
+async def get_availability(
+    vendor_id: str,
+    service_id: str,
+    start_date: date,
+    end_date: date,
+    db: Session = Depends(get_db)
+):
+    """
+    Get available slots considering:
+    - Service-specific schedule OR default "all" schedule
+    - Service-specific exceptions + "all" exceptions
+    - Walk-in availability
+    """
+    if (end_date - start_date).days > 90:
+        raise HTTPException(status_code=400, detail="Date range too large (max 90 days)")
+    
+    return vendor_mdl.generate_availability(
+        db, vendor_id, service_id, start_date, end_date
+    )

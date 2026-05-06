@@ -1,5 +1,5 @@
 from app.config.db.postgresql import Base
-from sqlalchemy import Column, Integer, String, Boolean, Time, Date, Enum, UUID, ForeignKey, JSON, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, Time, Date, Enum, UUID, ForeignKey, JSON, UniqueConstraint, Index
 from app.schemas.vendor_Schema import Gender
 import uuid 
 from sqlalchemy.orm import relationship
@@ -45,6 +45,7 @@ class Scheduling_(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     schedule_vendor_id = Column(UUID(as_uuid=True), ForeignKey('Vendor.vendor_id'))
+    service_id = Column(String, nullable=False, default="all") #"all" or specific service ID
     days = Column(JSON) #day(monday,tuesday) and times worked everyweek
     start_time = Column(Time)
     end_time = Column(Time)
@@ -55,6 +56,12 @@ class Scheduling_(Base):
 # capacity ✅
 
     schedules = relationship("Vendor", back_populates = "schedule")
+    __table_args__ = (
+        # Only one schedule per vendor+service combination
+        UniqueConstraint("schedule_vendor_id", "service_id", name="unique_vendor_service_schedule"),
+        Index("idx_vendor_service", "schedule_vendor_id", "service_id"),
+    )
+
 
 class ScheduleException(Base):
     __tablename__ = "schedule_exceptions"
@@ -62,6 +69,9 @@ class ScheduleException(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     vendor_id = Column(UUID(as_uuid=True), ForeignKey("Vendor.vendor_id"))
+
+    service_id = Column(String, nullable=False, default="all") #"all" or specific service ID
+
 
     date = Column(Date, nullable=False)
 
@@ -80,5 +90,7 @@ class ScheduleException(Base):
 
     vendor = relationship("Vendor")
     __table_args__ = (
-        UniqueConstraint("vendor_id", "date", name="unique_exception_per_day"),
+        # One exception per vendor+service+date
+        UniqueConstraint("vendor_id", "service_id", "date", name="unique_exception_per_service_date"),
+        Index("idx_vendor_service_date", "vendor_id", "service_id", "date"),
     )
