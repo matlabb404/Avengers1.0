@@ -30,7 +30,7 @@ def delete_s(db:Session, strid:str, vendor_id: str):
         db.commit()
         return {"Service Deleted Successfully"}
 
-def get_all_services(db:Session, vendor_id:str):
+def get_all_services(db:Session, vendor_id: str = None):
     if vendor_id:
         return db.query(Add_Service).filter(Add_Service.vendor_id == str(vendor_id)).all()
     return db.query(Add_Service).all()
