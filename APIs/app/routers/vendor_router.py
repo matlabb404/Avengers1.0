@@ -76,7 +76,8 @@ async def get_gender_vendors(gender:Gender):
 async def create_or_update_schedule(
     vendor_id: str,
     schedule: vendor_Schema.ScheduleCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user : User = Depends(get_current_user)
 ):
     """
     Create or update schedule (UPSERT).
@@ -90,7 +91,8 @@ async def update_schedule(
     vendor_id: str,
     service_id: str,
     update: vendor_Schema.ScheduleUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user : User = Depends(get_current_user)
 ):
     """
     Partially update existing schedule
@@ -120,7 +122,8 @@ async def get_schedules(
 async def delete_schedule(
     vendor_id: str,
     service_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user : User = Depends(get_current_user)
 ):
     """
     Delete service-specific schedule (reverts to default "all" schedule)
@@ -134,7 +137,8 @@ async def delete_schedule(
 async def create_exception(
     vendor_id: str,
     exception: vendor_Schema.ExceptionCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user : User = Depends(get_current_user)
 ):
     """
     Create schedule exception
@@ -160,7 +164,8 @@ async def get_exceptions(
 async def update_exception(
     exception_id: str,
     update: vendor_Schema.ExceptionBase,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user : User = Depends(get_current_user)
 ):
     """
     Update existing exception
@@ -170,7 +175,8 @@ async def update_exception(
 @router.delete("/exceptions/{exception_id}", tags=["Scheduling"])
 async def delete_exception(
     exception_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user : User = Depends(get_current_user)
 ):
     """
     Delete exception

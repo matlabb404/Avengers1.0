@@ -30,11 +30,10 @@ def delete_s(db:Session, strid:str, vendor_id: str):
         db.commit()
         return {"Service Deleted Successfully"}
 
-def get_all_services(db:Session):
-    return db.query(Add_Service).all()
-
 def get_all_services(db:Session, vendor_id:str):
-    return db.query(Add_Service).filter(Add_Service.vendor_id == str(vendor_id)).all()
+    if vendor_id:
+        return db.query(Add_Service).filter(Add_Service.vendor_id == str(vendor_id)).all()
+    return db.query(Add_Service).all()
 
 def add_price_history(db:Session, service_id:str, add_vendor_id:str, price:int):
     new_price = price_history(service_id=service_id, price=price, add_vendor_id=add_vendor_id)
