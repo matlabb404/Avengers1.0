@@ -74,7 +74,6 @@ async def get_gender_vendors(gender:Gender):
 
 @router.post("/{vendor_id}/schedule", tags=["Scheduling"], response_model=vendor_Schema.ScheduleResponse)
 async def create_or_update_schedule(
-    vendor_id: str,
     schedule: vendor_Schema.ScheduleCreate,
     db: Session = Depends(get_db),
     current_user : User = Depends(get_current_user)
@@ -84,11 +83,12 @@ async def create_or_update_schedule(
     Use service_id="all" for default schedule.
     Use specific UUID for service-specific schedule.
     """
+    vendor = vendor_mdl.get_current_vendor( current_user.id, db=db)
+    vendor_id = vendor.vendor_id
     return vendor_mdl.upsert_schedule(db, vendor_id, schedule)
 
 @router.patch("/{vendor_id}/schedule/{service_id}", tags=["Scheduling"])
 async def update_schedule(
-    vendor_id: str,
     service_id: str,
     update: vendor_Schema.ScheduleUpdate,
     db: Session = Depends(get_db),
@@ -97,6 +97,8 @@ async def update_schedule(
     """
     Partially update existing schedule
     """
+    vendor = vendor_mdl.get_current_vendor( current_user.id, db=db)
+    vendor_id = vendor.vendor_id
     return vendor_mdl.update_schedule(db, vendor_id, service_id, update)
 
 @router.get("/{vendor_id}/schedule", tags=["Scheduling"])
@@ -120,7 +122,6 @@ async def get_schedules(
 
 @router.delete("/{vendor_id}/schedule/{service_id}", tags=["Scheduling"])
 async def delete_schedule(
-    vendor_id: str,
     service_id: str,
     db: Session = Depends(get_db),
     current_user : User = Depends(get_current_user)
@@ -129,13 +130,14 @@ async def delete_schedule(
     Delete service-specific schedule (reverts to default "all" schedule)
     Cannot delete "all" schedule - update it instead
     """
+    vendor = vendor_mdl.get_current_vendor( current_user.id, db=db)
+    vendor_id = vendor.vendor_id
     return vendor_mdl.delete_schedule(db, vendor_id, service_id)
 
 # ============ EXCEPTION ENDPOINTS ============
 
 @router.post("/{vendor_id}/exceptions", tags=["Scheduling"], response_model=vendor_Schema.ExceptionResponse)
 async def create_exception(
-    vendor_id: str,
     exception: vendor_Schema.ExceptionCreate,
     db: Session = Depends(get_db),
     current_user : User = Depends(get_current_user)
@@ -143,6 +145,8 @@ async def create_exception(
     """
     Create schedule exception
     """
+    vendor = vendor_mdl.get_current_vendor( current_user.id, db=db)
+    vendor_id = vendor.vendor_id
     return vendor_mdl.create_exception(db, vendor_id, exception)
 
 @router.get("/{vendor_id}/exceptions", tags=["Scheduling"])
