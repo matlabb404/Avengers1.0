@@ -32,8 +32,6 @@ def get_db():
         db.close()
 
 
-
-
 def register_user(db:Session, account:AccountCreateBase):
     # Check if the email already exists
     if session.query(User).filter(User.email == account.email).first() is not None:

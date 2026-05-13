@@ -50,6 +50,9 @@ class Scheduling_(Base):
     start_time = Column(Time)
     end_time = Column(Time)
     capacity = Column(Integer)
+    interval_minutes = Column(Integer, nullable=False, default=30)  # ✅ Add this
+    walk_in_available = Column(Boolean, nullable=False, default=False)  # ✅ Add this
+
 
 # weekly rules ✅
 # working hours ✅
@@ -81,6 +84,9 @@ class ScheduleException(Base):
     end_time = Column(Time, nullable=True)
     capacity = Column(Integer, nullable=True)
     reason = Column(String, nullable=True)
+    interval_minutes = Column(Integer, nullable=False, default=30)  # ✅ Add this
+    walk_in_available = Column(Boolean, nullable=False, default=False)  # ✅ Add this
+
 
 # Full-day holiday	✅ is_closed=True
 # Late opening	✅ override start_time
