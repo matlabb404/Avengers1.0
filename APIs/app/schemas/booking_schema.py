@@ -45,6 +45,6 @@ class BookingRespone(BaseModel):
     notes: str 
 
 class BookingCreate(BaseModel):
-    service_id: int
+    service_id: str
     notes: str | None = None
     booking_time: datetime.datetime
