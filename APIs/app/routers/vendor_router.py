@@ -104,21 +104,17 @@ async def update_schedule(
 @router.get("/{vendor_id}/schedule", tags=["Scheduling"])
 async def get_schedules(
     vendor_id: str,
-    service_id: Optional[str] = None,
+    service_id: Optional[str] = "all",
     db: Session = Depends(get_db)
 ):
     """
-    Get schedule(s).
-    If service_id provided: returns that specific schedule (or falls back to "all")
-    If no service_id: returns all schedules for the vendor
+    Get a single schedule.
+    Always returns one schedule based on service_id (defaults to "all")
     """
-    if service_id:
-        schedule = vendor_mdl.get_schedule_for_service(db, vendor_id, service_id)
-        if not schedule:
-            raise HTTPException(status_code=404, detail="Schedule not found")
-        return schedule
-    else:
-        return vendor_mdl.get_all_schedules(db, vendor_id)
+    schedule = vendor_mdl.get_schedule_for_service(db, vendor_id, service_id)
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    return schedule
 
 @router.delete("/{vendor_id}/schedule/{service_id}", tags=["Scheduling"])
 async def delete_schedule(
