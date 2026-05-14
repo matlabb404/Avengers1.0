@@ -51,7 +51,8 @@ def get_service(db: Session, service_id: str):
         },
         "add_service": {
             "id": add_service.id,
-            "service_name": add_service.service_name
+            "service_name": add_service.service_name,
+            "interval_minutes": add_service.interval_minutes
         },
         "price_history": {
             "id": price_history.id,
