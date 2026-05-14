@@ -10,7 +10,7 @@ from app.models.service_model import Add_Service
 from app.models.vendor_model import Vendor
 from sqlalchemy.dialects import postgresql
 from uuid import UUID
-import datetime
+from datetime import timezone, datetime, date
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from collections import Counter
@@ -131,7 +131,7 @@ def cancel_booking(db:Session, user_id_request:str, booking_id_request : str):
     db.commit()
     return "Booking deleted Successfully"
 
-def get_service_availability(db: Session, service_id: UUID, selected_date: datetime.date): #To get timeslots for that day, have to 
+def get_service_availability(db: Session, service_id: UUID, selected_date: date): #To get timeslots for that day, have to 
 
     service = db.query(Service).filter(Service.id == service_id).first()
     if not service:
@@ -169,8 +169,8 @@ def get_service_availability(db: Session, service_id: UUID, selected_date: datet
         end_time = schedule.end_time
         capacity = schedule.capacity
 
-    start_datetime = datetime.datetime.combine(selected_date, start_time).replace(tzinfo=datetime.timezone.utc)
-    end_datetime = datetime.datetime.combine(selected_date, end_time).replace(tzinfo=datetime.timezone.utc)
+    start_datetime = datetime.combine(selected_date, start_time).replace(tzinfo=timezone.utc)
+    end_datetime = datetime.combine(selected_date, end_time).replace(tzinfo=timezone.utc)
 
     slots = db.query(booking_model.Slot).filter(
         booking_model.Slot.service_id == service_id,
@@ -179,7 +179,7 @@ def get_service_availability(db: Session, service_id: UUID, selected_date: datet
     ).all()
 
     slot_map = {
-        slot.time.replace(tzinfo=datetime.timezone.utc): slot
+        slot.time.replace(tzinfo=timezone.utc): slot
         for slot in slots
     }
 
@@ -207,8 +207,8 @@ def get_service_availability(db: Session, service_id: UUID, selected_date: datet
 def get_service_availability_range(
     db: Session,
     service_id: UUID,
-    start_date: datetime.date,
-    end_date: datetime.date
+    start_date: date,
+    end_date: date
 ):
     if end_date < start_date:
         raise HTTPException(status_code=400, detail="Invalid date range")
@@ -238,8 +238,8 @@ def get_service_availability_range(
 def get_service_unavailability(
     db: Session,
     service_id: UUID,
-    start_date: datetime.date,
-    end_date: datetime.date
+    start_date: date,
+    end_date: date
 ):
     service = db.query(Service).filter(Service.id == service_id).first()
     if not service:
@@ -293,8 +293,8 @@ def get_service_unavailability(
         capacity = exception.capacity if exception and exception.capacity else schedule.capacity
         interval = add_serv.interval_minutes
 
-        start_dt = datetime.datetime.combine(current_date, start_time).replace(tzinfo=datetime.timezone.utc)
-        end_dt = datetime.datetime.combine(current_date, end_time).replace(tzinfo=datetime.timezone.utc)
+        start_dt = datetime.combine(current_date, start_time).replace(tzinfo=timezone.utc)
+        end_dt = datetime.combine(current_date, end_time).replace(tzinfo=timezone.utc)
 
         # Get slots
         slots = db.query(booking_model.Slot).filter(
@@ -336,8 +336,8 @@ def get_service_unavailability(
 def generate_slots(
     schedule: vendor_model.Scheduling_,
     exceptions: List[vendor_model.ScheduleException],
-    start_date: datetime.date,
-    end_date: datetime.date
+    start_date: date,
+    end_date: date
 ):
     results = []
     current = start_date
