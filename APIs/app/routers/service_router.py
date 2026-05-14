@@ -160,7 +160,7 @@ async def add_price(service_id:str, price:float, db:Session=Depends(get_db), cur
 @router.get("/get_price_history", tags=["Price History"])
 async def get_single_price(service_id:str, db:Session=Depends(get_db), current_user: User = Depends(get_current_user)):
     vendor = get_current_vendor(current_user.id, db=db)
-    price_histor = get_price_history(db=db, service_id=service_id, add_vendor_id=str(vendor.vendor_id))
+    price_histor = get_price_history(db=db, service_id=service_id, add_vendor_id=vendor.vendor_id)
     if price_histor is None:
         return "Not Found"
     return price_histor
@@ -168,7 +168,7 @@ async def get_single_price(service_id:str, db:Session=Depends(get_db), current_u
 @router.get("/get_all_price_history", tags=["Price History"])
 async def get_all_price(db:Session=Depends(get_db), current_user: User = Depends(get_current_user)):
     vendor = get_current_vendor(current_user.id, db=db)
-    price_histor = get_allprice_history(db=db, vendor_id=str(vendor.vendor_id))
+    price_histor = get_allprice_history(db=db, vendor_id=vendor.vendor_id)
     if price_histor is None:
         return "Not Found"
     return price_histor
