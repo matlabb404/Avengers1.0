@@ -10,7 +10,7 @@ from app.models.service_model import Add_Service
 from app.models.vendor_model import Vendor
 from sqlalchemy.dialects import postgresql
 from uuid import UUID
-from datetime import timezone, datetime, date
+from datetime import timezone, datetime, date, timedelta
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from collections import Counter
@@ -21,9 +21,9 @@ def add_booking(db: Session, book: booking_schema.BookingCreate, user_id_request
         booking_time = book.booking_time.replace(second=0, microsecond=0)
 
         if booking_time.tzinfo is None:
-            booking_time = booking_time.replace(tzinfo=datetime.timezone.utc)
+            booking_time = booking_time.replace(tzinfo=timezone.utc)
 
-        if booking_time < datetime.now(datetime.timezone.utc):
+        if booking_time < datetime.now(timezone.utc):
             raise HTTPException(status_code=400, detail="Cannot book past time")
 
         service = db.query(Service).filter(Service.id == book.service_id).first()
@@ -63,7 +63,7 @@ def add_booking(db: Session, book: booking_schema.BookingCreate, user_id_request
 
         slot.booked += 1
 
-        booking_time = booking_time.astimezone(datetime.timezone.utc)
+        booking_time = booking_time.astimezone(timezone.utc)
 
         new_booking = Booking(
             time_date=booking_time,
@@ -200,7 +200,7 @@ def get_service_availability(db: Session, service_id: UUID, selected_date: date)
             "is_available": available > 0
         })
 
-        current += datetime.timedelta(minutes=interval)
+        current += timedelta(minutes=interval)
 
     return result
 
@@ -231,7 +231,7 @@ def get_service_availability_range(
             "slots": daily_slots
         })
 
-        current_date += datetime.timedelta(days=1)
+        current_date += timedelta(days=1)
 
     return result
 
@@ -269,7 +269,7 @@ def get_service_unavailability(
                 "date": current_date,
                 "reason": "not_working_day"
             })
-            current_date += datetime.timedelta(days=1)
+            current_date += timedelta(days=1)
             continue
 
         # 🔍 Check exception
@@ -284,7 +284,7 @@ def get_service_unavailability(
                 "date": current_date,
                 "reason": "closed_exception"
             })
-            current_date += datetime.timedelta(days=1)
+            current_date += timedelta(days=1)
             continue
 
         # Determine working hours
@@ -321,7 +321,7 @@ def get_service_unavailability(
                 all_full = False
                 break
 
-            current_time += datetime.timedelta(minutes=interval)
+            current_time += timedelta(minutes=interval)
 
         if all_full:
             result.append({
@@ -329,7 +329,7 @@ def get_service_unavailability(
                 "reason": "fully_booked"
             })
 
-        current_date += datetime.timedelta(days=1)
+        current_date += timedelta(days=1)
 
     return result
 
@@ -348,13 +348,13 @@ def generate_slots(
         weekday = current.strftime("%A").lower()
 
         if weekday not in schedule.days:
-            current += datetime.timedelta(days=1)
+            current += timedelta(days=1)
             continue
 
         exception = exception_map.get(current)
 
         if exception and exception.is_closed:
-            current += datetime.timedelta(days=1)
+            current += timedelta(days=1)
             continue
 
         start_time = schedule.start_time
@@ -373,7 +373,7 @@ def generate_slots(
         end_dt = datetime.combine(current, end_time)
 
         while current_dt < end_dt:
-            slot_end = current_dt + datetime.timedelta(minutes=schedule.interval_minutes)
+            slot_end = current_dt + timedelta(minutes=schedule.interval_minutes)
 
             results.append({
                 "start": current_dt,
@@ -383,6 +383,6 @@ def generate_slots(
 
             current_dt = slot_end
 
-        current += datetime.timedelta(days=1)
+        current += timedelta(days=1)
 
     return results
