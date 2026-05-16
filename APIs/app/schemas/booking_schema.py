@@ -4,6 +4,7 @@ import calendar
 import datetime
 from enum import Enum
 from typing import Optional
+from app.models.payment_model import Currency
 
 datess = {}
 dates_to_use = []
@@ -48,3 +49,7 @@ class BookingCreate(BaseModel):
     service_id: str
     notes: str | None = None
     booking_time: datetime.datetime
+
+class SetServicePriceRequest(BaseModel):
+    price: float = Field(..., ge=0, description="Price in major units (e.g., 50.00 for ¢50)")
+    currency: Currency = Currency.GHS

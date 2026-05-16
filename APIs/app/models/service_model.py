@@ -1,8 +1,9 @@
 from app.config.db.postgresql import Base
 import uuid
-from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, text, Date, Enum, UUID, ForeignKey, ARRAY, Float
+from sqlalchemy import Column, DateTime, Integer, String, TIMESTAMP, Boolean, text, Date, Enum, UUID, ForeignKey, ARRAY, Float
 from sqlalchemy.orm import relationship
-from app.schemas.services_schema import ServicesDropDownOption
+from app.models.payment_model import Currency
+from datetime import datetime, timezone
 
 class Add_Service(Base):
    __tablename__ = "add_service"
@@ -11,6 +12,10 @@ class Add_Service(Base):
    service_name = Column(String)
    interval_minutes = Column(Integer)
    vendor_id = Column(String)
+
+   # ✅ NEW - Source of truth for service price
+   price_minor = Column(Integer, nullable=False, default=0)
+   currency = Column(Enum(Currency), nullable=False, default=Currency.GHS)
    
    service_relation = relationship("Service", back_populates="add_service", uselist=False)
 
@@ -38,3 +43,12 @@ class price_history(Base):
    service_id = Column(String, ForeignKey('add_service.id'), nullable=False)  
    add_vendor_id = Column(UUID(as_uuid=True), ForeignKey('Vendor.vendor_id'), nullable=False)  
    price = Column(Float)
+
+   # ✅ NEW - audit fields
+   price_minor = Column(Integer, nullable=False, default=0)  # match Add_Service
+   currency = Column(Enum(Currency), nullable=False, default=Currency.GHS)
+   created_at = Column(
+        DateTime, 
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc)
+   )

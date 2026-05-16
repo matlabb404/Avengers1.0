@@ -5,8 +5,7 @@ import json
 from app.schemas import booking_schema
 from app.config.db.postgresql import SessionLocal
 from app.models.booking_model import Booking
-from app.models.service_model import Service
-from app.models.service_model import Add_Service
+from app.models.service_model import Service, Add_Service
 from app.models.vendor_model import Vendor
 from sqlalchemy.dialects import postgresql
 from uuid import UUID
@@ -15,6 +14,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from collections import Counter
 from typing import List
+from app.models.payment_model import PaymentStatus
 
 def add_booking(db: Session, book: booking_schema.BookingCreate, user_id_request: str):
     try:
@@ -29,6 +29,13 @@ def add_booking(db: Session, book: booking_schema.BookingCreate, user_id_request
         service = db.query(Service).filter(Service.id == book.service_id).first()
         if not service:
             raise HTTPException(status_code=404, detail="Service not found")
+        
+        # ✅ Fetch the Add_Service to get the canonical price
+        add_service = db.query(Add_Service).filter(
+            Add_Service.id == service.add_service_id
+        ).first()
+        if not add_service:
+            raise HTTPException(status_code=404, detail="Service catalog entry not found")
 
         schedule = db.query(vendor_model.Scheduling_).filter(
             vendor_model.Scheduling_.schedule_vendor_id == service.add_vendor_id
@@ -69,7 +76,11 @@ def add_booking(db: Session, book: booking_schema.BookingCreate, user_id_request
             time_date=booking_time,
             service_id=book.service_id,
             user_id=user_id_request,
-            notes=book.notes
+            notes=book.notes,
+            price_minor_at_booking=add_service.price_minor,  
+            currency_at_booking=add_service.currency,         
+            status= booking_model.BookingStatus.INIT,                         
+            payment_status=PaymentStatus.PENDING,   
         )
 
         db.add(new_booking)
