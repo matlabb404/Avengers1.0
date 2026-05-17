@@ -40,7 +40,7 @@ class Payment(Base):
     A payment attempt. One booking can have multiple payment attempts
     (e.g., first one fails, user retries).
     """
-    __tablename__ = "payments"
+    __tablename__ = "payment"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
@@ -91,7 +91,7 @@ class Payment(Base):
 
 
 class Refund(Base):
-    __tablename__ = "refunds"
+    __tablename__ = "refund"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     payment_id = Column(UUID(as_uuid=True), ForeignKey("payments.id"), nullable=False)
@@ -117,7 +117,7 @@ class WebhookEvent(Base):
     Store all webhook events for audit/debugging/replay
     CRITICAL: prevents double-processing
     """
-    __tablename__ = "webhook_events"
+    __tablename__ = "webhook_event"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     provider = Column(Enum(PaymentProvider), nullable=False)
