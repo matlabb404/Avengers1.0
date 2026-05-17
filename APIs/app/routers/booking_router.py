@@ -5,12 +5,10 @@ import app.modules.booking_module as booking_mdl
 from app.schemas import booking_schema
 from app.config.db.postgresql import SessionLocal
 from sqlalchemy.orm import Session
-from app.schemas.booking_schema import dates_to_use
 from app.models.account_model import User
 from app.modules.account_module import get_current_user
 import datetime
-from datetime import datetime as dtme
-import hashlib,secrets,string
+from datetime import datetime 
 
 router = APIRouter(prefix="/Booking")
 

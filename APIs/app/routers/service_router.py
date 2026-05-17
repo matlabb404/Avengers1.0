@@ -4,7 +4,7 @@ import shutil
 from app.models.account_model import User
 from app.modules.account_module import get_current_user
 from app.modules.vendor_module import get_current_vendor
-from app.schemas.booking_schema import SetServicePriceRequest
+from app.schemas.services_schema import SetServicePriceRequest
 from app.services.storage import save_file, process_video_upload, UPLOAD_STATUS
 from fastapi import APIRouter, Depends, HTTPException, File, Form, UploadFile, Query, Request, Header, BackgroundTasks
 from typing import List, Optional
@@ -17,7 +17,6 @@ import app.models.service_model as service_mdl
 from app.schemas import services_schema
 from app.config.db.postgresql import SessionLocal
 from sqlalchemy.orm import Session
-import hashlib,secrets,string
 from datetime import timedelta
 import uuid
 import os
@@ -154,9 +153,9 @@ async def get_all_full_service(db:Session= Depends(get_db), page: int = Query(de
     return service
 
 @router.post("/add_price_history", tags=["Price History"])
-async def add_price(service_id:str, price:float, db:Session=Depends(get_db), current_user: User = Depends(get_current_user)):
+async def add_price(service_id:str, price:float, request: SetServicePriceRequest, db:Session=Depends(get_db), current_user: User = Depends(get_current_user)):
     vendor = get_current_vendor(current_user.id, db=db)
-    new_price_history = add_price_history(db=db, service_id=service_id, add_vendor_id=str(vendor.vendor_id), price=price)
+    new_price_history = add_price_history(db=db, service_id=service_id, request=request, add_vendor_id=str(vendor.vendor_id), price=price)
     return new_price_history
 
 @router.patch("/{service_id}/booking_price", tags=["Service"])

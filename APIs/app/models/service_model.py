@@ -12,10 +12,6 @@ class Add_Service(Base):
    service_name = Column(String)
    interval_minutes = Column(Integer)
    vendor_id = Column(String)
-
-   # ✅ NEW - Source of truth for service price
-   price_minor = Column(Integer, nullable=False, default=0)
-   currency = Column(Enum(Currency), nullable=False, default=Currency.GHS)
    
    service_relation = relationship("Service", back_populates="add_service", uselist=False)
 
@@ -24,7 +20,7 @@ class Service(Base):
 
    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
    add_vendor_id = Column(UUID(as_uuid=True), ForeignKey('Vendor.vendor_id'), nullable=False)  
-   price = Column(Float, nullable=True)
+   price = Column(Float, nullable=True) #incase of special pricing on this in particular like promo, logic works on frontend
    price_history = Column(UUID(as_uuid=True), ForeignKey('price_history.id'), nullable=True)  
    add_service_id = Column(String, ForeignKey('add_service.id'), nullable=False)  
    image_url = Column(ARRAY(String), nullable=True)
@@ -47,8 +43,16 @@ class price_history(Base):
    # ✅ NEW - audit fields
    price_minor = Column(Integer, nullable=False, default=0)  # match Add_Service
    currency = Column(Enum(Currency), nullable=False, default=Currency.GHS)
+
+   # Both timestamps now
    created_at = Column(
-        DateTime, 
-        nullable=False,
-        default=lambda: datetime.now(timezone.utc)
+       DateTime,
+       nullable=False,
+       default=lambda: datetime.now(timezone.utc)
+   )
+   updated_at = Column(
+       DateTime,
+       nullable=False,
+       default=lambda: datetime.now(timezone.utc),
+       onupdate=lambda: datetime.now(timezone.utc)   # Auto-bumps on every UPDATE
    )

@@ -60,13 +60,13 @@ async def delete_vendor(vendor_id_details: UUID , db:Session=Depends(get_db),cur
     return response
 
 @router.get("/get_all_vendors", tags=["Vendor"])
-async def get_all_vendors():
-    all_vendors = vendor_mdl.get_all_vendors()
+async def get_all_vendors( db:Session=Depends(get_db)):
+    all_vendors = vendor_mdl.get_all_vendors(db)
     return all_vendors
 
 @router.get("/get_gender_vendors", tags=["Vendor"])
-async def get_gender_vendors(gender:Gender):
-    gender_vendors = vendor_mdl.get_gender_vendors(gender)
+async def get_gender_vendors(gender:Gender, db:Session=Depends(get_db)):
+    gender_vendors = vendor_mdl.get_gender_vendors(gender, db)
     return gender_vendors
 
 

@@ -1,3 +1,4 @@
+from app.config.settings import get_settings
 from app.models import vendor_model, api_test_model
 from sqlalchemy.orm import Session
 from datetime import date, timedelta
@@ -9,6 +10,7 @@ from app.models.vendor_model import Vendor
 from sqlalchemy.dialects import postgresql
 from uuid import UUID
 from fastapi import HTTPException
+
 
 
 def add_vendor(db:Session, vendor:vendor_Schema.VendorCreateBase, vendor_emaail : str, user_id_ :str ):
@@ -65,14 +67,12 @@ def add_vendor_details(db:Session, vendor_id: UUID ,vendor_details_request:vendo
     db.refresh(db_vendor_details)
     return db_vendor_details
 
-def get_all_vendors():
-    session_get = SessionLocal()
-    all_vendors = session_get.query(Vendor).all()
+def get_all_vendors(db:Session):
+    all_vendors = db.query(Vendor).all()
     return all_vendors
 
-def get_gender_vendors(gender):
-    session_get = SessionLocal()
-    all_vendors = session_get.query(Vendor).filter(Vendor.gender == gender).all()
+def get_gender_vendors(gender, db:Session):
+    all_vendors = db.query(Vendor).filter(Vendor.gender == gender).all()
     return all_vendors
 
 ### FOR SCHEDULING NOW

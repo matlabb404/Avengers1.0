@@ -1,7 +1,8 @@
 ##test structure for logic of code
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Union
-from fastapi import HTTPException, FastAPI, Depends, status
+from app.config.settings import get_settings
+from fastapi import HTTPException, Depends, status
 from app.models.account_model import User  
 from app.schemas.account_schema import TokenData
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -13,18 +14,13 @@ from app.schemas.account_schema import AccountCreateBase
 from app.schemas.account_schema import UpdatePassword
 import bcrypt
 
-session = SessionLocal()
-
-SECRET_KEY = "a11e64b6d9de7fbf5d51bc24f26b0379ddf8957b4ddecff3491f24bb9caeb592"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+settings = get_settings()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="Account/token")
 
 def get_db():
+    """FastAPI dependency: yields a fresh session per request, closes after."""
     db = SessionLocal()
     try:
         yield db
@@ -34,7 +30,7 @@ def get_db():
 
 def register_user(db:Session, account:AccountCreateBase):
     # Check if the email already exists
-    if session.query(User).filter(User.email == account.email).first() is not None:
+    if db.query(User).filter(User.email == account.email).first() is not None:
         return "Email already exists"
     
     # Check if passwords match
@@ -46,11 +42,11 @@ def register_user(db:Session, account:AccountCreateBase):
     
     # Create a new user
     new_user = User(email=account.email, password=hashed_password.decode('utf-8'))
-    session.add(new_user)
-    session.commit()
-    
+    db.add(new_user)
+    db.commit()
     
     return "User registered successfully"
+
 
 def reset_password(db:Session, update_password:UpdatePassword,  user_id : str):
     db_user = db.query(User).filter(User.id == user_id).first()
@@ -66,6 +62,7 @@ def reset_password(db:Session, update_password:UpdatePassword,  user_id : str):
         return "Password updated Successfully" 
     else:
         return "User with id does not exist"
+    
 
 def user_login(email: str, password: str, db:Session):
     user= db.query(User).filter(User.email == email).first()
@@ -84,12 +81,13 @@ def create_access_token(email:str, expires_delta: Union[timedelta, None]= None):
     else:
         expire = datetime.now(timezone.utc) +timedelta(minutes=15)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
     return encoded_jwt
+
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         email : str = payload.get("sub")
       #  print("Extracted email from token:", email)  used to debug 
         if email is None:
@@ -112,6 +110,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 def login_for_access_token(db: Session, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     user = user_login(form_data.username, form_data.password, db)
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(user.email, expires_delta=access_token_expires)
     return {"access_token": access_token, "token_type": "bearer"}

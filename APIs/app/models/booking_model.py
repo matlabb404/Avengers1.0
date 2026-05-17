@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from app.config.db.postgresql import Base
 from sqlalchemy import Column, Integer, String, DateTime, UUID, ForeignKey, UniqueConstraint, Index, Enum
 from sqlalchemy.orm import relationship
@@ -6,10 +8,11 @@ import uuid
 import enum
 
 class BookingStatus(str, enum.Enum):
-    INIT = "init"
-    PAID = "pending"
+    INIT = "init"                            # Just created, no payment yet
+    PENDING = "pending"                      # Awaiting Payment
+    CONFIRMED = "confirmed"                  # Paid + booking locked in
     CANCELLED = "cancelled"
-    COMPLETED = "completed"
+    COMPLETED = "completed"                  # Service has been delivered
 
 class Booking(Base):
     __tablename__ = "booking"
@@ -36,6 +39,12 @@ class Booking(Base):
 
     #relationship with payments table
     payments = relationship("Payment", back_populates="booking")  
+
+    created_at = Column(
+    DateTime,
+    nullable=False,
+    default=lambda: datetime.now(timezone.utc),
+    )
 
     __table_args__ = (
         UniqueConstraint("service_id", "time_date", "user_id", name="unique_user_booking"),

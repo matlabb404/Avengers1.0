@@ -35,16 +35,6 @@ class Currency(str, enum.Enum):
     EUR = "EUR"
 
 
-class PaymentStatus(str, enum.Enum):
-    PENDING = "pending"
-    PROCESSING = "processing"
-    SUCCEEDED = "succeeded"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-    REFUNDED = "refunded"
-    PARTIALLY_REFUNDED = "partially_refunded"
-
-
 class Payment(Base):
     """
     A payment attempt. One booking can have multiple payment attempts

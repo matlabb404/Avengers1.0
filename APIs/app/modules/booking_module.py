@@ -1,11 +1,12 @@
+from app.utils.money import from_minor_units
 from fastapi import HTTPException
 from app.models import booking_model, vendor_model
 from sqlalchemy.orm import Session
 import json
 from app.schemas import booking_schema
 from app.config.db.postgresql import SessionLocal
-from app.models.booking_model import Booking
-from app.models.service_model import Service, Add_Service
+from app.models.booking_model import Booking, BookingStatus
+from app.models.service_model import Service, Add_Service, price_history
 from app.models.vendor_model import Vendor
 from sqlalchemy.dialects import postgresql
 from uuid import UUID
@@ -29,6 +30,23 @@ def add_booking(db: Session, book: booking_schema.BookingCreate, user_id_request
         service = db.query(Service).filter(Service.id == book.service_id).first()
         if not service:
             raise HTTPException(status_code=404, detail="Service not found")
+        
+        # ✅ Read price_history via Service FK
+        if not service.price_history:
+            raise HTTPException(
+                status_code=400, 
+                detail="Service has no price configured. Vendor must set prices first."
+            )
+        
+        ph = db.query(price_history).filter(
+            price_history.id == service.price_history
+        ).first()
+        
+        if not ph or ph.price_minor <= 0:
+            raise HTTPException(
+                status_code=400, 
+                detail="Service has no valid booking fee. Vendor must set booking fee first."
+            )
         
         # ✅ Fetch the Add_Service to get the canonical price
         add_service = db.query(Add_Service).filter(
@@ -77,10 +95,10 @@ def add_booking(db: Session, book: booking_schema.BookingCreate, user_id_request
             service_id=book.service_id,
             user_id=user_id_request,
             notes=book.notes,
-            price_minor_at_booking=add_service.price_minor,  
-            currency_at_booking=add_service.currency,         
-            status= booking_model.BookingStatus.INIT,                         
-            payment_status=PaymentStatus.PENDING,   
+            price_minor_at_booking=ph.price_minor,      
+            currency_at_booking=ph.currency,             
+            status=booking_model.BookingStatus.INIT,
+            payment_status=PaymentStatus.PENDING,
         )
 
         db.add(new_booking)
@@ -96,9 +114,15 @@ def add_booking(db: Session, book: booking_schema.BookingCreate, user_id_request
 def get_all_booking_by_user(db: Session, user_id: int):
     results = (
         db.query(
+            Booking.booking_id,
             Booking.time_date,
             Booking.notes,
+            Booking.status,
             Service.price,
+            Add_Service.service_name,
+            Booking.price_minor_at_booking,    # ✅ snapshot
+            Booking.currency_at_booking,       # ✅ snapshot
+            Booking.payment_status,            # ✅ new
             Add_Service.service_name,
             Vendor.business_name
         )
@@ -111,11 +135,15 @@ def get_all_booking_by_user(db: Session, user_id: int):
 
     return [
         {
+            "booking_id": str(r.booking_id),
             "business_name": r.business_name,
             "service_name": r.service_name,
-            "price": r.price,
+            "price": from_minor_units(r.price_minor_at_booking, r.currency_at_booking),
+            "currency": r.currency_at_booking.value,
             "booking_date": r.time_date,
             "notes": r.notes,
+            "status": r.status.value if r.status else None,
+            "payment_status": r.payment_status.value if r.payment_status else None,
         }
         for r in results
     ]
@@ -124,7 +152,7 @@ def cancel_booking(db:Session, user_id_request:str, booking_id_request : str):
     db_query = db.query(Booking).filter(
         Booking.booking_id == booking_id_request,
         Booking.user_id == user_id_request,
-        Booking.status == "pending"
+        Booking.status.in_([BookingStatus.INIT, BookingStatus.CONFIRMED])
     ).first()
 
     if not db_query:
@@ -138,7 +166,7 @@ def cancel_booking(db:Session, user_id_request:str, booking_id_request : str):
     if slot:
         slot.booked = max(slot.booked - 1, 0)
 
-    db_query.status = "cancelled"
+    db_query.status = BookingStatus.CANCELLED
     db.commit()
     return "Booking deleted Successfully"
 

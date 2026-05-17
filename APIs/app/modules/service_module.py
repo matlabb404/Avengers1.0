@@ -1,10 +1,9 @@
-from uuid import UUID
-from app.schemas.booking_schema import SetServicePriceRequest
+from datetime import datetime, timezone
+from app.models.payment_model import Currency
+from app.schemas.services_schema import SetServicePriceRequest
 from sqlalchemy.orm import Session
-from app.schemas import services_schema
-from app.config.db.postgresql import SessionLocal
 from app.models.service_model import Add_Service, price_history
-from app.utils.money import to_minor_units, from_minor_units
+from app.utils.money import to_minor_units
 from fastapi import HTTPException
 
 
@@ -38,12 +37,43 @@ def get_all_services(db:Session, vendor_id: str = None):
         return db.query(Add_Service).filter(Add_Service.vendor_id == str(vendor_id)).all()
     return db.query(Add_Service).all()
 
-def add_price_history(db:Session, service_id:str, add_vendor_id:str, price:int):
-    new_price = price_history(service_id=service_id, price=price, add_vendor_id=add_vendor_id)
-    db.add(new_price)
-    db.commit()
-    db.refresh(new_price)
-    return new_price
+def add_price_history(
+    db: Session,
+    service_id: str,
+    add_vendor_id: str,
+    price: float,
+    request: SetServicePriceRequest,
+):
+    """Set BOTH full price AND booking fee atomically. Updates in place."""
+    add_service = db.query(Add_Service).filter(
+        Add_Service.id == service_id,
+        Add_Service.vendor_id == str(add_vendor_id),
+    ).first()
+    if not add_service:
+        raise HTTPException(404, "Service not found or you don't own it")
+    
+    # Q2: booking fee must be < full price
+    if request.price >= price:
+        raise HTTPException(
+            400, 
+            f"Booking fee ({request.price}) must be less than full price ({price})"
+        )
+    
+    ph = _find_or_create_price_history(db, service_id, str(add_vendor_id))
+    
+    # Update — onupdate handles updated_at automatically
+    ph.price = price
+    ph.price_minor = to_minor_units(request.price, request.currency)
+    ph.currency = request.currency
+    
+    try:
+        db.commit()
+        db.refresh(ph)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"Failed to update prices: {str(e)}")
+    
+    return ph
 
 def get_price_history(db:Session, service_id:str, add_vendor_id:str):
     return db.query(price_history).filter(price_history.service_id == service_id, price_history.add_vendor_id == add_vendor_id).first()
@@ -77,73 +107,64 @@ def update_price_history(db:Session, service_id:str, new_price:int):
     else:
         return None  # Price history with the given ID not found
     
-def add_booking_price(
-    db: Session, 
-    service_id: str, 
-    request: SetServicePriceRequest, 
-    vendor_id: str
-):
-    """
-    Update the booking price for a service AND log the change to price_history.
-    The Add_Service row is the source of truth; price_history is the audit trail.
-    """
-    # 1. Verify ownership
-    add_service = db.query(Add_Service).filter(
-        Add_Service.id == service_id,
-        Add_Service.vendor_id == str(vendor_id)
+def _find_or_create_price_history(db: Session, service_id: str, vendor_id: str) -> price_history:
+    """One row per (service_id, vendor_id). Find or create empty one."""
+    existing = db.query(price_history).filter(
+        price_history.service_id == service_id,
+        price_history.add_vendor_id == vendor_id,
     ).first()
     
+    if existing:
+        return existing
+    
+    new_entry = price_history(
+        service_id=service_id,
+        add_vendor_id=vendor_id,
+        price=None,
+        price_minor=0,
+        currency=Currency.GHS,
+    )
+    db.add(new_entry)
+    db.flush()  # Get the ID without committing yet
+    return new_entry
+
+
+def add_booking_price(
+    db: Session,
+    service_id: str,
+    request: SetServicePriceRequest,
+    vendor_id: str,
+):
+    """Set ONLY the booking fee. Updates price_history in place."""
+    add_service = db.query(Add_Service).filter(
+        Add_Service.id == service_id,
+        Add_Service.vendor_id == str(vendor_id),
+    ).first()
     if not add_service:
         raise HTTPException(404, "Service not found or you don't own it")
     
-    # 2. Convert to minor units (pesewas/kobo)
-    new_price_minor = to_minor_units(request.price, request.currency)
-    old_price_minor = add_service.price_minor
+    ph = _find_or_create_price_history(db, service_id, str(vendor_id))
     
-    # 3. Skip if nothing changed (avoid noise in audit log)
-    if (new_price_minor == old_price_minor 
-        and add_service.currency == request.currency):
-        return {
-            "service_id": add_service.id,
-            "service_name": add_service.service_name,
-            "price": from_minor_units(add_service.price_minor, add_service.currency),
-            "currency": add_service.currency.value,
-            "price_minor": add_service.price_minor,
-            "changed": False,
-            "message": "Price unchanged",
-        }
+    new_fee_minor = to_minor_units(request.price, request.currency)
     
-    # 4. Update Add_Service (source of truth for current price)
-    add_service.price_minor = new_price_minor
-    add_service.currency = request.currency
+    # Q9=a: Only validate if full price is set
+    if ph.price is not None:
+        full_price_minor = to_minor_units(ph.price, request.currency)
+        if new_fee_minor >= full_price_minor:
+            raise HTTPException(
+                400, 
+                f"Booking fee ({request.price}) must be less than full price ({ph.price})"
+            )
     
-    # 5. Log to price_history (audit trail)
-    history_entry = price_history(
-        service_id=service_id,
-        add_vendor_id=vendor_id,
-        price=request.price,
-        price_minor=new_price_minor,                    # ✅ NEW
-        currency=request.currency,                       # ✅ NEW
-        # changed_by_user_id=current_user.id,           if you pass user in
-    )
-    db.add(history_entry)
+    # Update — onupdate handles updated_at automatically
+    ph.price_minor = new_fee_minor
+    ph.currency = request.currency
     
-    # 6. Commit atomically - either both succeed or both roll back
     try:
         db.commit()
-        db.refresh(add_service)
-        db.refresh(history_entry)
+        db.refresh(ph)
     except Exception as e:
         db.rollback()
-        raise HTTPException(500, f"Failed to update price: {str(e)}")
+        raise HTTPException(500, f"Failed to update booking fee: {str(e)}")
     
-    return {
-        "service_id": add_service.id,
-        "service_name": add_service.service_name,
-        "price": from_minor_units(add_service.price_minor, add_service.currency),
-        "currency": add_service.currency.value,
-        "price_minor": add_service.price_minor,
-        "history_id": str(history_entry.id),
-        "previous_price_minor": old_price_minor,
-        "changed": True,
-    }
+    return ph

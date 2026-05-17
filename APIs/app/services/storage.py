@@ -1,6 +1,7 @@
 import shutil 
 from pathlib import Path
 import os
+from app.config.settings import get_settings
 import boto3
 import mimetypes
 from botocore.exceptions import NoCredentialsError
@@ -10,7 +11,8 @@ from pathlib import Path
 from PIL import Image
 import time
 import magic
-import uuid
+
+settings = get_settings()
 
 BASE_STATIC = "static"
 UPLOAD_DIR = "uploads"
@@ -25,8 +27,8 @@ MAX_AGE = 60 * 60 * 2  # 2 hours
 
 s3_client = boto3.client(
     's3',
-    aws_access_key_id='YOUR_KEY',
-    aws_secret_access_key='YOUR_SECRET'
+    aws_access_key_id= settings.AWS_ACCESS_KEY_ID,
+    aws_secret_access_key= settings.AWS_SECRET_ACCESS_KEY
 )
 
 UPLOAD_STATUS = {}
