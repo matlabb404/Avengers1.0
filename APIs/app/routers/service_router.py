@@ -60,7 +60,7 @@ async def get_all_small_services(db:Session=Depends(get_db)):
     return get_all_services(db=db)
 
 @router.get("/get_all_services_vendor", tags=["Service"])
-async def get_all_small_services(db:Session=Depends(get_db), vendor_id=str):
+async def get_all_small_services(vendor_id: str, db:Session=Depends(get_db)):
     return get_all_services(db=db, vendor_id=vendor_id)
 
 # Big Service CRUD operations
