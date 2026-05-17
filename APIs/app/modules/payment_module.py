@@ -497,27 +497,17 @@ async def _mark_payment_failed(
 
 async def expire_unpaid_bookings(db: Session) -> dict:
     """
-    Q3=c + Q7=d: Release slots for bookings stuck in INIT/PENDING for too long.
+    Release slots for bookings stuck in INIT/PENDING for too long.
     
-    Triggered when no payment has succeeded within
-    settings.BOOKING_PAYMENT_TIMEOUT_MINUTES of booking creation.
-    
-    Returns count of bookings expired.
+    Now uses booking.created_at properly.
     """
     timeout = timedelta(minutes=settings.BOOKING_PAYMENT_TIMEOUT_MINUTES)
     cutoff = datetime.now(timezone.utc) - timeout
     
-    # Note: bookings don't have a created_at field today — we'd want to add one.
-    # For now, use booking.time_date as a proxy (cancel if booking time approaches
-    # and payment hasn't succeeded). This is a simplification.
-    #
-    # TODO: Add Booking.created_at column. Until then, this targets bookings
-    # whose appointment time is approaching but payment_status != SUCCEEDED.
-    
     stale_bookings = db.query(Booking).filter(
-    Booking.status.in_([BookingStatus.INIT, BookingStatus.PENDING]),
-    Booking.payment_status != PaymentStatus.SUCCEEDED,
-    Booking.created_at <= cutoff,   # ✅ Correct logic
+        Booking.status.in_([BookingStatus.INIT, BookingStatus.PENDING]),
+        Booking.payment_status != PaymentStatus.SUCCEEDED,
+        Booking.created_at <= cutoff,   # ✅ Correct logic now
     ).all()
     
     expired_count = 0
@@ -535,7 +525,6 @@ async def expire_unpaid_bookings(db: Session) -> dict:
         booking.status = BookingStatus.CANCELLED
         expired_count += 1
         
-        # Emit event for each
         await emit(Events.BOOKING_EXPIRED, {
             "booking_id": str(booking.booking_id),
             "user_id": str(booking.user_id),
@@ -547,7 +536,6 @@ async def expire_unpaid_bookings(db: Session) -> dict:
         logger.info("Expired %d unpaid bookings", expired_count)
     
     return {"expired_count": expired_count}
-
 
 async def mark_completed_bookings(db: Session) -> dict:
     """
