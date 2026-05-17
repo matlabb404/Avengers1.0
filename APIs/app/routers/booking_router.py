@@ -7,8 +7,7 @@ from app.config.db.postgresql import SessionLocal
 from sqlalchemy.orm import Session
 from app.models.account_model import User
 from app.modules.account_module import get_current_user
-import datetime
-from datetime import datetime 
+from datetime import date
 
 router = APIRouter(prefix="/Booking")
 
@@ -63,7 +62,7 @@ async def delete_booking_by_user(
 @router.get("/availability", tags=["Booking"])
 def get_availability(
     service_id: UUID,
-    date: datetime.date,
+    date: date,
     db: Session = Depends(get_db)
 ):
     return booking_mdl.get_service_availability(db, service_id, date)
@@ -71,8 +70,8 @@ def get_availability(
 @router.get("/unavailability", tags=["Booking"])
 def get_unavailability(
     service_id: UUID,
-    start_date: datetime.date,
-    end_date: datetime.date,
+    start_date: date,
+    end_date: date,
     db: Session = Depends(get_db)
 ):
     return booking_mdl.get_service_unavailability(
