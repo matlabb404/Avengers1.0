@@ -94,7 +94,7 @@ class Refund(Base):
     __tablename__ = "refund"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    payment_id = Column(UUID(as_uuid=True), ForeignKey("payments.id"), nullable=False)
+    payment_id = Column(UUID(as_uuid=True), ForeignKey("payment.id"), nullable=False)
     
     amount_minor = Column(Integer, nullable=False)  # Amount being refunded
     currency = Column(Enum(Currency), nullable=False)
