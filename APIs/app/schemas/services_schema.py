@@ -12,5 +12,5 @@ class ServicesDropDownOption(str, Enum):
 
 
 class SetServicePriceRequest(BaseModel):
-    price: float = Field(..., ge=0, description="Price in major units (e.g., 50.00 for ¢50)")
+    price_minor: float = Field(..., ge=0, description="Price in major units (e.g., 50.00 for ¢50)")
     currency: Currency = Currency.GHS

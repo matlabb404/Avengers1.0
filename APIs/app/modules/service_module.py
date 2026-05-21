@@ -53,17 +53,17 @@ def add_price_history(
         raise HTTPException(404, "Service not found or you don't own it")
     
     # Q2: booking fee must be < full price
-    if request.price >= price:
+    if request.price_minor >= price:
         raise HTTPException(
             400, 
-            f"Booking fee ({request.price}) must be less than full price ({price})"
+            f"Booking fee ({request.price_minor}) must be less than full price ({price})"
         )
     
     ph = _find_or_create_price_history(db, service_id, str(add_vendor_id))
     
     # Update — onupdate handles updated_at automatically
     ph.price = price
-    ph.price_minor = to_minor_units(request.price, request.currency)
+    ph.price_minor = to_minor_units(request.price_minor, request.currency)
     ph.currency = request.currency
     
     try:
@@ -90,6 +90,8 @@ def get_allprice_history(db:Session, vendor_id:str):
             "service_id" : ph.service_id,
             "id" : ph.id,
             "price": ph.price,
+            "price_minor": ph.price_minor,
+            "currency": ph.currency,
             "add_vendor_id": ph.add_vendor_id,
             "service_name": service_name,
             "interval_minutes": interval_minutes
@@ -145,7 +147,7 @@ def add_booking_price(
     
     ph = _find_or_create_price_history(db, service_id, str(vendor_id))
     
-    new_fee_minor = to_minor_units(request.price, request.currency)
+    new_fee_minor = to_minor_units(request.price_minor, request.currency)
     
     # Q9=a: Only validate if full price is set
     if ph.price is not None:
@@ -153,7 +155,7 @@ def add_booking_price(
         if new_fee_minor >= full_price_minor:
             raise HTTPException(
                 400, 
-                f"Booking fee ({request.price}) must be less than full price ({ph.price})"
+                f"Booking fee ({request.price_minor}) must be less than full price ({ph.price})"
             )
     
     # Update — onupdate handles updated_at automatically

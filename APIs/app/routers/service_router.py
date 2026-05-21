@@ -63,7 +63,7 @@ async def get_all_small_services(db:Session=Depends(get_db)):
 async def get_all_small_services(vendor_id: str, db:Session=Depends(get_db)):
     return get_all_services(db=db, vendor_id=vendor_id)
 
-# Big Service CRUD operations
+# ----------------------Big Service CRUD operations
 @router.post("/Add_big_service", tags=["Big Service"])
 async def add_big_service(
     # We receive the metadata as a JSON string or individual Form fields
@@ -152,8 +152,11 @@ async def get_all_full_service(db:Session= Depends(get_db), page: int = Query(de
     service = big_service_mdl.get_all_service(db=db)
     return service
 
+
+# ------------------------Price Hoistory
 @router.post("/add_price_history", tags=["Price History"])
 async def add_price(service_id:str, price:float, request: SetServicePriceRequest, db:Session=Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Vendor sets the full and Bookingprice for one of their service offerings."""
     vendor = get_current_vendor(current_user.id, db=db)
     new_price_history = add_price_history(db=db, service_id=service_id, request=request, add_vendor_id=str(vendor.vendor_id), price=price)
     return new_price_history
@@ -185,7 +188,7 @@ async def update_price(service_id:str, price:float, db:Session=Depends(get_db)):
     new_price_history = update_price_history(db=db, service_id=service_id, new_price=price)
     return new_price_history
 
-# Uploads section
+# ----------------------------------------Uploads section
 @router.post("/upload/init", tags=["Big Service"])
 async def init_upload(current_user: User = Depends(get_current_user)):
     upload_id = str(uuid.uuid4())

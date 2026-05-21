@@ -56,7 +56,9 @@ def get_service(db: Session, service_id: str):
         },
         "price_history": {
             "id": price_history.id,
-            "price": price_history.price
+            "price": price_history.price,
+            "price_minor": price_history.price_minor,
+            "currency": price_history.currency
         }
 }
 
@@ -109,7 +111,9 @@ def get_service_by_vendor(db:Session, vendor_id : str):
             },
             "price_history": {
                 "id": price_history.id,
-                "price": price_history.price
+                "price": price_history.price,
+                "price_minor": price_history.price_minor,
+                "currency": price_history.currency
             }
         })
     return output
@@ -143,7 +147,9 @@ def get_all_service(db:Session):
             },
             "price_history": {
                 "id": price_history.id,
-                "price": price_history.price
+                "price": price_history.price,
+                "price_minor": price_history.price_minor,
+                "currency": price_history.currency
             }
         })
     return output
