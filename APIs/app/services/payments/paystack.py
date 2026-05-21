@@ -51,8 +51,12 @@ class PaystackProvider(PaymentProviderInterface):
             "callback_url": callback_url,
             "metadata": metadata,
             "channels": [
-                "card", "bank", "ussd",
-                "mobile_money", "bank_transfer", "qr",
+                "card", 
+                # "bank", 
+                # "ussd",
+                "mobile_money",
+                # "bank_transfer",
+                # "qr",
             ],
         }
         
