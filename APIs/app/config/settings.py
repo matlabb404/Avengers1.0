@@ -27,6 +27,13 @@ class Settings:
     AWS_S3_BUCKET: str = os.getenv("AWS_S3_BUCKET", "")
     USE_S3: bool = os.getenv("USE_S3", "false").lower() == "true"
 
+    # Cloudflare R2 (S3-compatible)
+    R2_ACCOUNT_ID: str = os.getenv("R2_ACCOUNT_ID", "")
+    R2_ACCESS_KEY_ID: str = os.getenv("R2_ACCESS_KEY_ID", "")
+    R2_SECRET_ACCESS_KEY: str = os.getenv("R2_SECRET_ACCESS_KEY", "")
+    R2_BUCKET: str = os.getenv("R2_BUCKET", "")
+    R2_PUBLIC_BASE_URL: str = os.getenv("R2_PUBLIC_BASE_URL", "") 
+
     # Booking timeouts
     BOOKING_PAYMENT_TIMEOUT_MINUTES: int = int(
         os.getenv("BOOKING_PAYMENT_TIMEOUT_MINUTES", "15")

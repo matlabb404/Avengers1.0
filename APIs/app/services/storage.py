@@ -26,9 +26,11 @@ for path in [UPLOAD_DIR, MEDIA_DIR, VIDEO_DIR, THUMB_DIR]:
 MAX_AGE = 60 * 60 * 2  # 2 hours
 
 s3_client = boto3.client(
-    's3',
-    aws_access_key_id= settings.AWS_ACCESS_KEY_ID,
-    aws_secret_access_key= settings.AWS_SECRET_ACCESS_KEY
+    "s3",
+    endpoint_url=f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
+    aws_access_key_id=settings.R2_ACCESS_KEY_ID,
+    aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
+    region_name="auto",
 )
 
 UPLOAD_STATUS = {}
@@ -54,7 +56,8 @@ def save_file(file, folder_path: str) -> str:
     full_path = f"{folder_path}/{file_name}"
 
     if USE_S3:
-        return save_file_to_s3(file, "your-bucket-name", full_path)
+        content_type = getattr(file, "content_type", None)
+        return save_file_to_r2(file, full_path, content_type)
     else:
         # Your existing VPS/Local logic
         dest = Path(f"static/{folder_path}/{file_name}")
@@ -67,17 +70,14 @@ def save_file(file, folder_path: str) -> str:
             "path": str(dest)
         }
 
-def save_file_to_s3(file, bucket_name: str, s3_path: str) -> str:
+def save_file_to_r2(file, s3_path: str, content_type: str) -> str:
     try:
-        # Move cursor to the beginning of the file
-        file.file.seek(0) 
-        s3_client.upload_fileobj(file.file, bucket_name, s3_path)
-        return {
-            "url": f"https://{bucket_name}.s3.amazonaws.com/{s3_path}",
-            "path": None  # no local path
-        }
+        file.file.seek(0)
+        extra = {"ContentType": content_type} if content_type else {}
+        s3_client.upload_fileobj(file.file, settings.R2_BUCKET, s3_path, ExtraArgs=extra)
+        return {"url": f"{settings.R2_PUBLIC_BASE_URL}/{s3_path}", "path": None}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"S3 Upload Failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"R2 upload failed: {str(e)}")
 
 def process_video_upload(upload_id: str, temp_path: str):
     try:
