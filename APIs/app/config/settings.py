@@ -34,6 +34,15 @@ class Settings:
     R2_BUCKET: str = os.getenv("R2_BUCKET", "")
     R2_PUBLIC_BASE_URL: str = os.getenv("R2_PUBLIC_BASE_URL", "") 
 
+    # ── Media uploads (R2 presign) ──────────────────────────────────────────
+    MEDIA_MAX_UPLOAD_BYTES: int = int(os.getenv("MEDIA_MAX_UPLOAD_BYTES", str(512 * 1024 * 1024)))        # 512 MB
+    MEDIA_MULTIPART_THRESHOLD_BYTES: int = int(os.getenv("MEDIA_MULTIPART_THRESHOLD_BYTES", str(8 * 1024 * 1024)))  # >8 MB -> multipart
+    MEDIA_MULTIPART_PART_BYTES: int = int(os.getenv("MEDIA_MULTIPART_PART_BYTES", str(8 * 1024 * 1024)))  # 8 MB parts (>=5 MiB required)
+    MEDIA_PRESIGN_EXPIRY_SECONDS: int = int(os.getenv("MEDIA_PRESIGN_EXPIRY_SECONDS", "900"))             # 15 min
+    MEDIA_PENDING_TTL_SECONDS: int = int(os.getenv("MEDIA_PENDING_TTL_SECONDS", "3600"))                  # reap after 1 h
+
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
     # Booking timeouts
     BOOKING_PAYMENT_TIMEOUT_MINUTES: int = int(
         os.getenv("BOOKING_PAYMENT_TIMEOUT_MINUTES", "15")

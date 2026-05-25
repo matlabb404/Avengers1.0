@@ -20,4 +20,7 @@ uuid
 python-magic
 httpx
 python-dotenv
+botocore
+arq 
+blurhash-python
 # subprocess

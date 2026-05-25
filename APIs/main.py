@@ -1,14 +1,6 @@
 from fastapi import FastAPI
-from app.routers import apis_test_router, vendor_router,account_router, customer_router, service_router, booking_router, payment_router
+from app.routers import apis_test_router, media_router, vendor_router,account_router, customer_router, service_router, booking_router, payment_router
 from app.config.db.postgresql import Base, engine
-from sqlalchemy.orm import Session
-from app.models.api_test_model import Test
-from app.models.account_model import User
-from app.models.vendor_model import Vendor
-from app.models.customer_model import customer
-from app.models.service_model import Add_Service
-from app.models.booking_model import Booking
-from app.config.db.postgresql import SessionLocal, engine
 from fastapi.middleware.cors import CORSMiddleware
 import app.handlers.notification_handlers  # noqa: F401 — side-effect import
 
@@ -33,5 +25,6 @@ app.include_router(account_router.router)
 app.include_router (vendor_router.router)
 app.include_router (customer_router.router)
 app.include_router(service_router.router)
+app.include_router(media_router.router)
 app.include_router(booking_router.router)
 app.include_router(payment_router.router)
