@@ -10,7 +10,7 @@ import app.handlers.notification_handlers  # noqa: F401 — side-effect import
 #re-create the db
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
+app = FastAPI(root_path="/secret/test/avengers/test/backend/dev")
 
 app.add_middleware(
     CORSMiddleware,
