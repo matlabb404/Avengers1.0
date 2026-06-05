@@ -24,21 +24,12 @@ settings = get_settings()
 # Cache forever: object keys carry a unique asset id, so the bytes never change.
 IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
 
-_client = boto3.client(
+boto3.client(
     "s3",
-    endpoint_url=f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
-    aws_access_key_id=settings.R2_ACCESS_KEY_ID,
-    aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
-    region_name="auto",
-    config=Config(
-        signature_version="s3v4",
-        # R2 is S3-compatible but doesn't implement the data-integrity checksums
-        # botocore >= 1.36 signs by default. Left on, a presigned PUT is signed
-        # expecting a checksum header the phone never sends -> SignatureDoesNotMatch.
-        # "when_required" stops boto3 from baking them into the signature.
-        request_checksum_calculation="when_required",
-        response_checksum_validation="when_required",
-    ),
+    endpoint_url="https://<account-id>.r2.cloudflarestorage.com",
+    aws_access_key_id="NEW_KEY",
+    aws_secret_access_key="NEW_SECRET",
+    region_name="auto"
 )
 
 _R2_HOST = f"{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
