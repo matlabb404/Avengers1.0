@@ -2,6 +2,7 @@
 import shutil
 
 from app.models.account_model import User
+from app.models.vendor_model import Vendor
 from app.modules.account_module import get_current_user
 from app.modules.vendor_module import get_current_vendor
 from app.schemas.services_schema import SetServicePriceRequest
