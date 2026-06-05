@@ -16,6 +16,7 @@ from botocore.client import Config
 from botocore.exceptions import ClientError
 
 from app.config.settings import get_settings
+from app.services.media import r2_presign
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -40,6 +41,8 @@ _client = boto3.client(
     ),
 )
 
+_R2_HOST = f"{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
 BUCKET = settings.R2_BUCKET
 
 
@@ -56,10 +59,10 @@ def presign_put(key: str, content_type: str, expires: int) -> str:
     signature, so the client must send exactly that Content-Type header — it
     cannot upload a different type than it declared.
     """
-    return _client.generate_presigned_url(
-        "put_object",
-        Params={"Bucket": BUCKET, "Key": key, "ContentType": content_type},
-        ExpiresIn=expires,
+    return r2_presign.presign_put(
+        key=key, content_type=content_type, expires=expires,
+        host=_R2_HOST, access_key=settings.R2_ACCESS_KEY_ID, secret_key=settings.R2_SECRET_ACCESS_KEY,
+        bucket=BUCKET
     )
 
 def download(key: str, dest: str) -> None:
@@ -85,15 +88,14 @@ def create_multipart(key: str, content_type: str) -> str:
 
 
 def presign_part(key: str, upload_id: str, part_number: int, expires: int) -> str:
-    return _client.generate_presigned_url(
-        "upload_part",
-        Params={
-            "Bucket": BUCKET,
-            "Key": key,
-            "UploadId": upload_id,
-            "PartNumber": part_number,
-        },
-        ExpiresIn=expires,
+    """
+    Presigned URL for a multipart upload part. The client must send a PUT to
+    that URL with the exact Content-Type declared at multipart creation time.
+    """
+    return r2_presign.presign_part(
+        key=key, upload_id=upload_id, part_number=part_number, expires=expires,
+        host=_R2_HOST, access_key=settings.R2_ACCESS_KEY_ID, secret_key=settings.R2_SECRET_ACCESS_KEY,
+        bucket=BUCKET
     )
 
 

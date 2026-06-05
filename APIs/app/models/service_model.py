@@ -1,4 +1,5 @@
 from app.config.db.postgresql import Base
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 import uuid
 from sqlalchemy import Column, DateTime, Integer, String, TIMESTAMP, Boolean, text, Date, Enum, UUID, ForeignKey, ARRAY, Float
 from sqlalchemy.orm import relationship
@@ -23,7 +24,8 @@ class Service(Base):
    price = Column(Float, nullable=True) #incase of special pricing on this in particular like promo, logic works on frontend
    price_history = Column(UUID(as_uuid=True), ForeignKey('price_history.id'), nullable=True)  
    add_service_id = Column(String, ForeignKey('add_service.id'), nullable=False)  
-   image_url = Column(ARRAY(String), nullable=True)
+   # Ordered references into media_assets. Replaces the legacy image_url string
+   asset_ids = Column(ARRAY(PG_UUID(as_uuid=True)), nullable=True)
    description = Column(String, nullable=True)  
 
    # Define relationships
