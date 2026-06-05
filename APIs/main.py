@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routers import apis_test_router, media_router, vendor_router,account_router, customer_router, service_router, booking_router, payment_router
+from app.routers import apis_test_router, media_router, posts_router, vendor_router,account_router, customer_router, service_router, booking_router, payment_router
 from app.config.db.postgresql import Base, engine
 from fastapi.middleware.cors import CORSMiddleware
 import app.handlers.notification_handlers  # noqa: F401 — side-effect import
@@ -25,6 +25,7 @@ app.include_router(account_router.router)
 app.include_router (vendor_router.router)
 app.include_router (customer_router.router)
 app.include_router(service_router.router)
+app.include_router(posts_router.router)
 app.include_router(media_router.router)
 app.include_router(booking_router.router)
 app.include_router(payment_router.router)
