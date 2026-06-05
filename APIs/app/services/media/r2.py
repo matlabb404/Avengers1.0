@@ -24,12 +24,12 @@ settings = get_settings()
 # Cache forever: object keys carry a unique asset id, so the bytes never change.
 IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
 
-boto3.client(
+_client = boto3.client(
     "s3",
-    endpoint_url="https://<account-id>.r2.cloudflarestorage.com",
-    aws_access_key_id="NEW_KEY",
-    aws_secret_access_key="NEW_SECRET",
-    region_name="auto"
+    endpoint_url=f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
+    aws_access_key_id=settings.R2_ACCESS_KEY_ID,
+    aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
+    region_name="auto",
 )
 
 _R2_HOST = f"{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
