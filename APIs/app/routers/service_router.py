@@ -1,4 +1,3 @@
-
 import shutil
 
 from app.models.account_model import User
