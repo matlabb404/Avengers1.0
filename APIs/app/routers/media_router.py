@@ -80,7 +80,7 @@ async def finalize_upload(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    asset = media_module.finalize_upload(db, current_user, asset_id, req)
+    asset = await media_module.finalize_upload(db, current_user, asset_id, req)
     return media_module._to_response(asset)
 
 

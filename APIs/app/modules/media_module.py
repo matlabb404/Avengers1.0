@@ -13,6 +13,7 @@ import math
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
+from app.services.queue import enqueue_media_processing
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -157,7 +158,7 @@ def get_upload_parts(db: Session, user: User, asset_id: UUID) -> PartUrlsRespons
 
 # ── Finalize ──────────────────────────────────────────────────────────────────
 
-def finalize_upload(
+async def finalize_upload(
     db: Session, user: User, asset_id: UUID, req: FinalizeUploadRequest
 ) -> MediaAsset:
     asset = _owned(db, user, asset_id)
@@ -205,13 +206,16 @@ def finalize_upload(
         asset.status = MediaStatus.READY
         asset.ready_at = datetime.now(timezone.utc)
     else:
-        # Video (and other) need a poster frame + metadata: the async worker
-        # (next step) claims UPLOADED assets and moves them to READY.
-        asset.status = MediaStatus.UPLOADED
-        # TODO(worker): await enqueue_media_processing(asset.id)  # once arq is wired
+            # Video (and other) need a poster frame + metadata: the async worker
+            # claims UPLOADED assets and moves them to READY.
+            asset.status = MediaStatus.UPLOADED
 
     db.commit()
     db.refresh(asset)
+    # Enqueue AFTER commit so the worker can't race to read the row before it's
+    # visible. Only videos/files need processing; images are already READY.
+    if asset.status == MediaStatus.UPLOADED:
+        await enqueue_media_processing(asset.id)
     return asset
 
 
