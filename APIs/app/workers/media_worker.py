@@ -32,6 +32,15 @@ from PIL import Image
 
 from app.config.db.postgresql import SessionLocal
 from app.models.media_model import MediaAsset, MediaKind, MediaStatus
+from app.models import (  
+    account_model,
+    booking_model,
+    customer_model,
+    vendor_model,
+    service_model,
+    payment_model,
+    api_test_model,
+)
 from app.modules import media_module
 from app.services import queue
 from app.services.media import r2
