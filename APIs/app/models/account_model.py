@@ -1,9 +1,10 @@
 from sqlalchemy import Column, Integer, String, UUID
 from sqlalchemy.orm import relationship
 from app.config.db.postgresql import Base
+from app.utils.mixins import TimestampMixin
 import uuid
 
-class User(Base):
+class User(TimestampMixin, Base):
     __tablename__ = "users"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default = uuid.uuid4)

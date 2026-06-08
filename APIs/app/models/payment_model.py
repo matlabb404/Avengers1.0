@@ -5,6 +5,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
+from app.utils.mixins import TimestampMixin
 import uuid
 import enum
 
@@ -35,7 +36,7 @@ class Currency(str, enum.Enum):
     EUR = "EUR"
 
 
-class Payment(Base):
+class Payment(TimestampMixin, Base):
     """
     A payment attempt. One booking can have multiple payment attempts
     (e.g., first one fails, user retries).
@@ -72,10 +73,6 @@ class Payment(Base):
     # Idempotency
     idempotency_key = Column(String, unique=True, index=True)
     
-    # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), 
-                        onupdate=lambda: datetime.now(timezone.utc))
     paid_at = Column(DateTime)  # When status became SUCCEEDED
     
     # Relationships
@@ -90,7 +87,7 @@ class Payment(Base):
     )
 
 
-class Refund(Base):
+class Refund(TimestampMixin, Base):
     __tablename__ = "refund"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -106,13 +103,12 @@ class Refund(Base):
     provider_metadata = Column(JSON)
     
     initiated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))  # Who triggered it
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime)
     
     payment = relationship("Payment", back_populates="refunds")
 
 
-class WebhookEvent(Base):
+class WebhookEvent(TimestampMixin, Base):
     """
     Store all webhook events for audit/debugging/replay
     CRITICAL: prevents double-processing

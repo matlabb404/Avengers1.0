@@ -2,9 +2,10 @@
 from app.config.db.postgresql import Base
 from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, text, Date,DateTime, UUID, ForeignKey
 from sqlalchemy.orm import relationship
+from app.utils.mixins import TimestampMixin
 import uuid
 
-class customer(Base):
+class customer(TimestampMixin, Base):
     __tablename__ = "customer"
 
     customer_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -16,9 +17,26 @@ class customer(Base):
     post_code = Column(String(10), nullable=False)
     country = Column(String)
     date_of_birth = Column(Date)
-    last_edited = Column(DateTime,nullable=False)
 
 
 #relationship wit user
-
     customer_user = relationship("User", back_populates = "user_customer")
+
+    following = relationship(
+        "Following",
+        foreign_keys="Following.follower_customer_id",
+        back_populates="follower_customer",
+        cascade="all, delete-orphan",
+    )
+    comments = relationship(
+        "Comment",
+        foreign_keys="Comment.author_customer_id",
+        back_populates="author_customer",
+        cascade="all, delete-orphan",
+    )
+    likes = relationship(
+        "Like",
+        foreign_keys="Like.liker_customer_id",
+        back_populates="liker_customer",
+        cascade="all, delete-orphan",
+    )

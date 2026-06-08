@@ -40,6 +40,7 @@ from app.models import (
     service_model,
     payment_model,
     api_test_model,
+    social_model,
 )
 from app.modules import media_module
 from app.services import queue

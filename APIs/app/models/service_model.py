@@ -4,9 +4,10 @@ import uuid
 from sqlalchemy import Column, DateTime, Integer, String, TIMESTAMP, Boolean, text, Date, Enum, UUID, ForeignKey, ARRAY, Float
 from sqlalchemy.orm import relationship
 from app.models.payment_model import Currency
+from app.utils.mixins import TimestampMixin
 from datetime import datetime, timezone
 
-class Add_Service(Base):
+class Add_Service(TimestampMixin, Base):
    __tablename__ = "add_service"
 
    id = Column(String, primary_key=True)
@@ -16,7 +17,7 @@ class Add_Service(Base):
    
    service_relation = relationship("Service", back_populates="add_service", uselist=False)
 
-class Service(Base):
+class Service(TimestampMixin, Base):
    __tablename__ = "services"
 
    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -24,9 +25,12 @@ class Service(Base):
    price = Column(Float, nullable=True) #incase of special pricing on this in particular like promo, logic works on frontend
    price_history = Column(UUID(as_uuid=True), ForeignKey('price_history.id'), nullable=True)  
    add_service_id = Column(String, ForeignKey('add_service.id'), nullable=False)  
-   # Ordered references into media_assets. Replaces the legacy image_url string
    asset_ids = Column(ARRAY(PG_UUID(as_uuid=True)), nullable=True)
    description = Column(String, nullable=True)  
+   like_count = Column(Integer, nullable=False, default=0, server_default="0")
+   comment_count = Column(Integer, nullable=False, default=0, server_default="0")
+   rating_count = Column(Integer, nullable=False, default=0, server_default="0")
+   rating_sum = Column(Integer, nullable=False, default=0, server_default="0")
 
    # Define relationships
    add_service = relationship("Add_Service",uselist=False, back_populates="service_relation")
@@ -34,7 +38,15 @@ class Service(Base):
    #booking relationship
    booking = relationship("Booking",uselist=False, back_populates="service")
 
-class price_history(Base):
+   # ── Social relationships ──────────────────────────────────────────────
+   comments = relationship(
+       "Comment", back_populates="service", cascade="all, delete-orphan"
+   )
+   likes = relationship(
+       "Like", back_populates="service", cascade="all, delete-orphan"
+   )
+
+class price_history(TimestampMixin, Base):
    __tablename__ = "price_history"
 
    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -45,16 +57,3 @@ class price_history(Base):
    # ✅ NEW - audit fields
    price_minor = Column(Integer, nullable=False, default=0)  # match Add_Service
    currency = Column(Enum(Currency), nullable=False, default=Currency.GHS)
-
-   # Both timestamps now
-   created_at = Column(
-       DateTime,
-       nullable=False,
-       default=lambda: datetime.now(timezone.utc)
-   )
-   updated_at = Column(
-       DateTime,
-       nullable=False,
-       default=lambda: datetime.now(timezone.utc),
-       onupdate=lambda: datetime.now(timezone.utc)   # Auto-bumps on every UPDATE
-   )

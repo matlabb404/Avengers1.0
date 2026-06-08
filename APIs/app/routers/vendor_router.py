@@ -1,17 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from uuid import UUID
 from typing import Optional
 import app.modules.vendor_module as vendor_mdl
-import app.modules.booking_module as booking_module
-import app.models.account_model as acct_mdl
-import app.modules.account_module as acct_module
 from app.schemas import vendor_Schema
 from app.config.db.postgresql import SessionLocal
 from sqlalchemy.orm import Session
-from app.schemas.vendor_Schema import Gender
+from app.schemas.vendor_Schema import Gender, VendorPublicProfile
 from app.models.account_model import User
 from app.modules.account_module import get_current_user
-from datetime import timedelta, date
+from datetime import date
 
 router = APIRouter(prefix="/Vendor")
 
@@ -69,6 +66,19 @@ async def get_gender_vendors(gender:Gender, db:Session=Depends(get_db)):
     gender_vendors = vendor_mdl.get_gender_vendors(gender, db)
     return gender_vendors
 
+@router.get("/{vendor_id}", tags=["Vendor"], response_model=VendorPublicProfile)
+async def get_vendor_by_id(
+    vendor_id: UUID,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    View another vendor's public profile, including whether you follow them and
+    their follower count. Per-user (is_following) -> not cached.
+    """
+    response.headers["Cache-Control"] = "private, no-store"
+    return vendor_mdl.get_vendor_public_profile(db, current_user, vendor_id)
 
 # ============ SCHEDULE ENDPOINTS ============
 

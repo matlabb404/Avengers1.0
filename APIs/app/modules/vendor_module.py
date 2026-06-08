@@ -1,13 +1,12 @@
 from app.config.settings import get_settings
-from app.models import vendor_model, api_test_model
+from app.models import vendor_model
 from sqlalchemy.orm import Session
 from datetime import date, timedelta
 from typing import Optional, List
 from app.models.account_model import User
 from app.schemas import vendor_Schema
-from app.config.db.postgresql import SessionLocal
+from app.modules import social_module
 from app.models.vendor_model import Vendor
-from sqlalchemy.dialects import postgresql
 from uuid import UUID
 from fastapi import HTTPException
 
@@ -91,6 +90,22 @@ def __schedule(db:Session, schedule_vendor_id: UUID, schedulebase:vendor_Schema.
 def get_current_vendor(user_id: str, db: Session ):
     vendor = db.query(vendor_model.Vendor).filter(vendor_model.Vendor.user_id == user_id).first()
     return vendor
+
+def get_vendor_public_profile(db: Session, user, vendor_id):
+    vendor = db.query(Vendor).filter(Vendor.vendor_id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    return {
+        "vendor_id": vendor.vendor_id,
+        "first_name": vendor.first_name,
+        "last_name": vendor.last_name,
+        "business_name": vendor.business_name,
+        "city": vendor.city,
+        "country": vendor.country,
+        "follower_count": social_module.follower_count(db, vendor_id),
+        "is_following": social_module.is_following(db, user, vendor_id),
+    }
 
 # ============ SCHEDULE CRUD ============
 

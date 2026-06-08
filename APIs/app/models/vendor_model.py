@@ -1,10 +1,11 @@
 from app.config.db.postgresql import Base
 from sqlalchemy import Column, Integer, String, Boolean, Time, Date, Enum, UUID, ForeignKey, JSON, UniqueConstraint, Index
 from app.schemas.vendor_Schema import Gender
+from app.utils.mixins import TimestampMixin
 import uuid 
 from sqlalchemy.orm import relationship
 
-class Vendor(Base):
+class Vendor(TimestampMixin, Base):
     __tablename__ = "Vendor"
 
     vendor_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -29,7 +30,32 @@ class Vendor(Base):
     
     schedule = relationship("Scheduling_", back_populates = "schedules")
 
-class Vendor_Details(Base):
+    followers = relationship(
+        "Following",
+        foreign_keys="Following.vendor_id",
+        back_populates="followed_vendor",
+        cascade="all, delete-orphan",
+    )
+    following = relationship(
+        "Following",
+        foreign_keys="Following.follower_vendor_id",
+        back_populates="follower_vendor",
+        cascade="all, delete-orphan",
+    )
+    comments = relationship(
+        "Comment",
+        foreign_keys="Comment.author_vendor_id",
+        back_populates="author_vendor",
+        cascade="all, delete-orphan",
+    )
+    likes = relationship(
+        "Like",
+        foreign_keys="Like.liker_vendor_id",
+        back_populates="liker_vendor",
+        cascade="all, delete-orphan",
+    )
+
+class Vendor_Details(TimestampMixin, Base):
     __tablename__= "Vendor_Details"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -40,7 +66,7 @@ class Vendor_Details(Base):
 
     vendor = relationship("Vendor", back_populates="vendor_details")
 
-class Scheduling_(Base):
+class Scheduling_(TimestampMixin, Base):
     __tablename__= "Schedule"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -66,7 +92,7 @@ class Scheduling_(Base):
     )
 
 
-class ScheduleException(Base):
+class ScheduleException(TimestampMixin, Base):
     __tablename__ = "schedule_exceptions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

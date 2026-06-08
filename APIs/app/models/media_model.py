@@ -30,6 +30,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, UUID, ForeignKey, BigInteger, Integer, Enum, Index, JSON
+from app.utils.mixins import TimestampMixin
 from sqlalchemy.orm import relationship
 
 class MediaKind(str, enum.Enum):
@@ -46,7 +47,7 @@ class MediaStatus(str, enum.Enum):
     EXPIRED = "expired"
 
 
-class MediaAsset(Base):
+class MediaAsset(TimestampMixin, Base):
     __tablename__ = "media_assets"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -86,17 +87,6 @@ class MediaAsset(Base):
     blurhash = Column(String)        # ~25-char blurred preview, shown before load
 
     failure_reason = Column(String)
-
-    # -- Timestamps ---------------------------------------------------------
-    created_at = Column(
-        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
-    )
-    updated_at = Column(
-        DateTime,
-        nullable=False,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-    )
     uploaded_at = Column(DateTime)
     ready_at = Column(DateTime)
 

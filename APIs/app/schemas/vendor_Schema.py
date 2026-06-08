@@ -70,6 +70,19 @@ class ExceptionBase(BaseModel):
     walk_in_available: Optional[bool] = None
     reason: Optional[str] = None
 
+class VendorPublicProfile(BaseModel):
+    vendor_id: UUID
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    business_name: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    follower_count: int = 0
+    is_following: bool = False
+
+    class Config:
+        from_attributes = True
+
 class ExceptionCreate(ExceptionBase):
     pass
 

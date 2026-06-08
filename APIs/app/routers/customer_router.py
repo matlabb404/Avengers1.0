@@ -25,7 +25,7 @@ def get_db():
 @router.post("/Add_customer", tags=["customer"])
 async def add_customer(customer: customer_schema.CustomerCreateBase, db:Session=Depends(get_db), current_user : User= Depends(get_current_user)):
     user_ida = current_user.id
-    customer.last_edited = datetime.now() # Add today's date to the 'last_edited' field
+    # customer.last_edited = datetime.now() # Add today's date to the 'last_edited' field
     response = customer_modules.add_customer(db=db, customer=customer, user_id_=user_ida)
     return response
 

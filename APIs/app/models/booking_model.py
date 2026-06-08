@@ -4,6 +4,7 @@ from app.config.db.postgresql import Base
 from sqlalchemy import Column, Integer, String, DateTime, UUID, ForeignKey, UniqueConstraint, Index, Enum
 from sqlalchemy.orm import relationship
 from app.models.payment_model import Currency, PaymentStatus
+from app.utils.mixins import TimestampMixin
 import uuid
 import enum
 
@@ -14,7 +15,7 @@ class BookingStatus(str, enum.Enum):
     CANCELLED = "cancelled"
     COMPLETED = "completed"                  # Service has been delivered
 
-class Booking(Base):
+class Booking(TimestampMixin, Base):
     __tablename__ = "booking"
 
     booking_id = Column(UUID(as_uuid= True), primary_key = True, default=uuid.uuid4)
@@ -40,10 +41,14 @@ class Booking(Base):
     #relationship with payments table
     payments = relationship("Payment", back_populates="booking")  
 
-    created_at = Column(
-    DateTime,
-    nullable=False,
-    default=lambda: datetime.now(timezone.utc),
+    # The one rating-comment tied to this booking (a rating requires a completed
+    # booking; uq_comment_rating_per_booking guarantees at most one). uselist=False
+    # because it's 0-or-1. Cascade so deleting a booking removes its rating.
+    rating = relationship(
+        "Comment",
+        back_populates="booking",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (
@@ -52,7 +57,7 @@ class Booking(Base):
         Index("idx_booking_payment_status", "payment_status"),  
     )
 
-class Slot(Base):
+class Slot(TimestampMixin, Base):
     __tablename__ = "booking_slots"
 
     id = Column(UUID(as_uuid= True), primary_key = True, default=uuid.uuid4)
