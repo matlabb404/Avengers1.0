@@ -790,16 +790,73 @@ def list_replies(
 
 # ── Comment -> DTO dict (author resolved, reply_count for top-level) ─────────
 
-def comment_to_out(db: Session, c: Comment, include_reply_count: bool = True) -> dict:
+def resolve_author_names(db: Session, comments: list) -> dict:
+    """
+    Batch-resolve display names for a list of comments in ONE query per actor
+    type (avoids N+1). Returns {("customer"|"vendor", id): name}.
+
+    customer name -> customer.name; vendor name -> Vendor.business_name (falling
+    back to first+last if business_name is blank).
+    """
+    from app.models.customer_model import customer as CustomerModel
+    from app.models.vendor_model import Vendor
+
+    customer_ids = {c.author_customer_id for c in comments if c.author_customer_id is not None}
+    vendor_ids = {c.author_vendor_id for c in comments if c.author_vendor_id is not None}
+
+    names: dict = {}
+
+    if customer_ids:
+        rows = (
+            db.query(CustomerModel.customer_id, CustomerModel.name)
+            .filter(CustomerModel.customer_id.in_(customer_ids))
+            .all()
+        )
+        for cid, name in rows:
+            names[("customer", cid)] = name or "Customer"
+
+    if vendor_ids:
+        rows = (
+            db.query(
+                Vendor.vendor_id, Vendor.business_name, Vendor.first_name, Vendor.last_name
+            )
+            .filter(Vendor.vendor_id.in_(vendor_ids))
+            .all()
+        )
+        for vid, business, first, last in rows:
+            display = business or " ".join(x for x in (first, last) if x) or "Vendor"
+            names[("vendor", vid)] = display
+
+    return names
+
+
+def comment_to_out(
+    db: Session,
+    c: Comment,
+    include_reply_count: bool = True,
+    author_names: dict | None = None,
+) -> dict:
     """
     Shape a Comment row into the CommentOut schema: collapse the two author FKs
-    into {kind, id}, and (for top-level rows) count replies. Pass
+    into {kind, id, name}, and (for top-level rows) count replies. Pass
     include_reply_count=False when rendering replies themselves (always 0).
+
+    author_names: optional pre-resolved {(kind, id): name} map (from
+    resolve_author_names) to avoid an N+1 name lookup per comment. If omitted,
+    the name falls back to a single per-call lookup.
     """
     if c.author_customer_id is not None:
-        author = {"kind": "customer", "id": c.author_customer_id}
+        kind, aid = "customer", c.author_customer_id
     else:
-        author = {"kind": "vendor", "id": c.author_vendor_id}
+        kind, aid = "vendor", c.author_vendor_id
+
+    name = None
+    if author_names is not None:
+        name = author_names.get((kind, aid))
+    if name is None:
+        name = _lookup_single_author_name(db, kind, aid)
+
+    author = {"kind": kind, "id": aid, "name": name}
 
     reply_count = 0
     if include_reply_count and c.parent_id is None:
@@ -818,4 +875,58 @@ def comment_to_out(db: Session, c: Comment, include_reply_count: bool = True) ->
         "created_at": c.created_at,
         "edited_at": c.edited_at,
         "reply_count": reply_count,
+    }
+
+
+def _lookup_single_author_name(db: Session, kind: str, aid) -> str:
+    """Single-author name lookup (used when no batched map is provided)."""
+    from app.models.customer_model import customer as CustomerModel
+    from app.models.vendor_model import Vendor
+
+    if kind == "customer":
+        row = db.query(CustomerModel.name).filter(CustomerModel.customer_id == aid).first()
+        return (row[0] if row and row[0] else "Customer")
+    row = (
+        db.query(Vendor.business_name, Vendor.first_name, Vendor.last_name)
+        .filter(Vendor.vendor_id == aid)
+        .first()
+    )
+    if not row:
+        return "Vendor"
+    business, first, last = row
+    return business or " ".join(x for x in (first, last) if x) or "Vendor"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# POST SOCIAL SUMMARY  (for the detail view — one call, counts + per-user flags)
+# ═════════════════════════════════════════════════════════════════════════════
+
+def get_post_social(db: Session, user: User, service_id: UUID) -> dict:
+    """
+    Everything the post-detail (BigPostCard) needs in one round trip:
+      - global counts (like/comment/rating, from denormalized Service columns)
+      - is_liked  (per-user)
+      - the post vendor's is_following + follower_count (per-user + global)
+
+    Auth required (per-user flags). Not cacheable.
+    """
+    from app.models.service_model import Service
+
+    service = db.query(Service).filter(Service.id == service_id).first()
+    if not service:
+        raise HTTPException(404, "Post not found")
+
+    counts = _counts_for(service)  # like_count, comment_count, rating_count, rating_avg
+
+    vendor_id = service.add_vendor_id
+    return {
+        "service_id": service_id,
+        "like_count": counts["like_count"],
+        "comment_count": counts["comment_count"],
+        "rating_count": counts["rating_count"],
+        "rating_avg": counts["rating_avg"],
+        "is_liked": is_liked(db, user, service_id),
+        "vendor_id": vendor_id,
+        "is_following": is_following(db, user, vendor_id),
+        "follower_count": follower_count(db, vendor_id),
     }

@@ -100,6 +100,7 @@ class CommentAuthor(BaseModel):
     """Who wrote it — resolved to whichever of customer/vendor authored the row."""
     kind: str                       # "customer" | "vendor"
     id: UUID
+    name: Optional[str] = None      # display name (customer.name / vendor.business_name)
 
 
 class CommentOut(BaseModel):
@@ -122,3 +123,35 @@ class CommentPage(BaseModel):
 
 class DeleteResponse(BaseModel):
     deleted: bool
+
+
+# ── Public vendor profile (with follow state) ────────────────────────────────
+
+class VendorProfileResponse(BaseModel):
+    """
+    Another vendor's public profile plus the viewer's follow state.
+    Per-user (is_following depends on the caller) -> private/no-store.
+    """
+    vendor_id: UUID
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    business_name: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    phone_no: Optional[str] = None
+    is_following: bool = False
+    follower_count: int = 0
+
+
+# ── Post social summary (detail view: counts + per-user flags, one call) ─────
+
+class PostSocialResponse(BaseModel):
+    service_id: UUID
+    like_count: int = 0
+    comment_count: int = 0
+    rating_count: int = 0
+    rating_avg: Optional[float] = None
+    is_liked: bool = False
+    vendor_id: UUID
+    is_following: bool = False
+    follower_count: int = 0
