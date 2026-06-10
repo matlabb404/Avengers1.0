@@ -12,7 +12,6 @@ class CustomerCreateBase(BaseModel):
     post_code : str
     country : str
     date_of_birth : date
-    last_edited: datetime = None  # Default value is None
     
     
 class CustomerUpdate(BaseModel):
