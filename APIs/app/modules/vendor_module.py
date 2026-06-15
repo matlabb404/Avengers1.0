@@ -93,24 +93,6 @@ def __schedule(db:Session, schedule_vendor_id: UUID, schedulebase:vendor_Schema.
 def get_current_vendor(user_id: str, db: Session ):
     vendor = db.query(vendor_model.Vendor).filter(vendor_model.Vendor.user_id == user_id).first()
     return vendor
-
-@deprecated(reason="Use get_vendor_public_profile instead, which includes follower_count and rating info.")
-def get_vendor_public_profile(db: Session, user, vendor_id):
-    vendor = db.query(Vendor).filter(Vendor.vendor_id == vendor_id).first()
-    if not vendor:
-        raise HTTPException(status_code=404, detail="Vendor not found")
-
-    return {
-        "vendor_id": vendor.vendor_id,
-        "first_name": vendor.first_name,
-        "last_name": vendor.last_name,
-        "business_name": vendor.business_name,
-        "city": vendor.city,
-        "country": vendor.country,
-        "follower_count": social_module.follower_count(db, vendor_id),
-        "is_following": social_module.is_following(db, user, vendor_id),
-    }
-
 # ═════════════════════════════════════════════════════════════════════════════
 # VENDOR PROFILE  (public profile of another vendor + their posts)
 # ═════════════════════════════════════════════════════════════════════════════
