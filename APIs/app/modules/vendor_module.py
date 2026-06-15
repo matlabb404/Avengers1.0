@@ -1,5 +1,4 @@
 from operator import and_, or_
-from warnings import deprecated
 
 from app.config.settings import get_settings
 from app.models import vendor_model
@@ -93,6 +92,7 @@ def __schedule(db:Session, schedule_vendor_id: UUID, schedulebase:vendor_Schema.
 def get_current_vendor(user_id: str, db: Session ):
     vendor = db.query(vendor_model.Vendor).filter(vendor_model.Vendor.user_id == user_id).first()
     return vendor
+
 # ═════════════════════════════════════════════════════════════════════════════
 # VENDOR PROFILE  (public profile of another vendor + their posts)
 # ═════════════════════════════════════════════════════════════════════════════
