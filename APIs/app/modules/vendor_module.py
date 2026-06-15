@@ -1,3 +1,6 @@
+from operator import and_, or_
+from warnings import deprecated
+
 from app.config.settings import get_settings
 from app.models import vendor_model
 from sqlalchemy.orm import Session
@@ -91,6 +94,7 @@ def get_current_vendor(user_id: str, db: Session ):
     vendor = db.query(vendor_model.Vendor).filter(vendor_model.Vendor.user_id == user_id).first()
     return vendor
 
+@deprecated(reason="Use get_vendor_public_profile instead, which includes follower_count and rating info.")
 def get_vendor_public_profile(db: Session, user, vendor_id):
     vendor = db.query(Vendor).filter(Vendor.vendor_id == vendor_id).first()
     if not vendor:
@@ -106,6 +110,144 @@ def get_vendor_public_profile(db: Session, user, vendor_id):
         "follower_count": social_module.follower_count(db, vendor_id),
         "is_following": social_module.is_following(db, user, vendor_id),
     }
+
+# ═════════════════════════════════════════════════════════════════════════════
+# VENDOR PROFILE  (public profile of another vendor + their posts)
+# ═════════════════════════════════════════════════════════════════════════════
+#
+# get_vendor_profile: header data (name/business/location) + global follower_count
+#   + per-user is_following. Per-user field => router marks it private/no-store.
+#
+# get_vendor_services: the distinct services this vendor offers, to build the
+#   filter chips on the profile (id + name).
+#
+# get_vendor_posts: this vendor's posts, newest-first, keyset-paginated, optionally
+#   filtered to a single service (by add_service.id). Same FeedPage shape as
+#   Discover/Following so the client reuses FeedList.
+
+
+def get_vendor_profile(db: Session, user: User, vendor_id: UUID) -> dict:
+    """
+    Public profile of a vendor as seen by the current user.
+    Returns the VendorPublicProfile shape.
+    """
+    vendor = db.query(Vendor).filter(Vendor.vendor_id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(404, "Vendor not found")
+
+    # Average rating across all this vendor's posts (sum of rating_sum / sum of
+    # rating_count over their services). Done in one aggregate query.
+    from app.models.service_model import Service
+    from sqlalchemy import func as _func
+
+    agg = (
+        db.query(
+            _func.coalesce(_func.sum(Service.rating_sum), 0),
+            _func.coalesce(_func.sum(Service.rating_count), 0),
+        )
+        .filter(Service.add_vendor_id == vendor_id)
+        .first()
+    )
+    total_sum, total_count = (agg[0] or 0), (agg[1] or 0)
+    rating_avg = round(total_sum / total_count, 2) if total_count > 0 else None
+
+    return {
+        "vendor_id": vendor.vendor_id,
+        "first_name": vendor.first_name,
+        "last_name": vendor.last_name,
+        "business_name": vendor.business_name,
+        "city": vendor.city,
+        "country": vendor.country,
+        "follower_count": social_module.follower_count(db, vendor_id),
+        "is_following": social_module.is_following(db, user, vendor_id),
+        "rating_avg": rating_avg,
+        "rating_count": total_count,
+    }
+
+
+def get_vendor_services(db: Session, vendor_id: UUID) -> list[dict]:
+    """
+    Distinct services this vendor has posted, for the profile's filter chips.
+    Returns [{id, name}], deduplicated, ordered by name.
+    """
+    from app.models.service_model import Service, Add_Service
+
+    rows = (
+        db.query(Add_Service.id, Add_Service.service_name)
+        .join(Service, Service.add_service_id == Add_Service.id)
+        .filter(Service.add_vendor_id == vendor_id)
+        .distinct()
+        .all()
+    )
+    seen = []
+    out = []
+    for sid, name in rows:
+        if sid in seen:
+            continue
+        seen.append(sid)
+        out.append({"id": sid, "name": name})
+    out.sort(key=lambda x: (x["name"] or "").lower())
+    return out
+
+
+def get_vendor_posts(
+    db: Session,
+    vendor_id: UUID,
+    service: Optional[str] = None,
+    limit: int = 20,
+    cursor: Optional[str] = None,
+) -> dict:
+    """
+    A vendor's posts, newest-first, keyset-paginated. Optionally filtered to a
+    single service by add_service.id (the `service` query param). FeedPage shape.
+    """
+    from app.models.service_model import Service, Add_Service, price_history
+    from app.modules.big_services_module import _build_full_response
+
+    vendor = db.query(Vendor).filter(Vendor.vendor_id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(404, "Vendor not found")
+
+    limit = max(1, min(limit, 50))
+
+    q = (
+        db.query(Service, Vendor, price_history, Add_Service)
+        .join(Add_Service, Service.add_service_id == Add_Service.id)
+        .join(Vendor, Service.add_vendor_id == Vendor.vendor_id)
+        .join(price_history, Service.price_history == price_history.id)
+        .filter(Service.add_vendor_id == vendor_id)
+    )
+
+    # Optional service filter (add_service.id is a VARCHAR PK, compared as string).
+    if service and service.strip().lower() not in ("", "all"):
+        q = q.filter(Service.add_service_id == service.strip())
+
+    if cursor:
+        c_ts, c_id = social_module._decode_cursor(cursor)
+        q = q.filter(
+            or_(
+                Service.created_at < c_ts,
+                and_(Service.created_at == c_ts, Service.id < c_id),
+            )
+        )
+
+    q = q.order_by(Service.created_at.desc(), Service.id.desc()).limit(limit + 1)
+    rows = q.all()
+
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+
+    items = []
+    for svc, vnd, ph, add_service in rows:
+        post = _build_full_response(db, svc, vnd, ph, add_service)
+        items.append({"post": post, "counts": social_module._counts_for(svc)})
+
+    next_cursor = None
+    if has_more and rows:
+        last_service = rows[-1][0]
+        next_cursor = social_module._encode_cursor(last_service.created_at, last_service.id)
+
+    return {"items": items, "next_cursor": next_cursor}
 
 # ============ SCHEDULE CRUD ============
 

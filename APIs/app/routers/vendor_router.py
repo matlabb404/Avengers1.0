@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from app.modules import social_module
+from app.schemas.social_schema import FeedPage
+from fastapi import APIRouter, Depends, HTTPException, Response, Query
 from uuid import UUID
-from typing import Optional
+from typing import List, Optional
 import app.modules.vendor_module as vendor_mdl
 from app.schemas import vendor_Schema
 from app.config.db.postgresql import SessionLocal
 from sqlalchemy.orm import Session
-from app.schemas.vendor_Schema import Gender, VendorPublicProfile
+from app.schemas.vendor_Schema import Gender, VendorPublicProfile, VendorServiceChip
 from app.models.account_model import User
 from app.modules.account_module import get_current_user
 from datetime import date
@@ -66,19 +68,52 @@ async def get_gender_vendors(gender:Gender, db:Session=Depends(get_db)):
     gender_vendors = vendor_mdl.get_gender_vendors(gender, db)
     return gender_vendors
 
+# ============ PUBLIC PROFILE ENDPOINTS ============
+# Parametrized routes. Sub-paths (/posts, /services) declared before the bare
+# /{vendor_id} by convention. All sit BELOW the literal routes above so e.g.
+# /get_all_vendors is never captured as vendor_id="get_all_vendors".
+
+@router.get("/{vendor_id}/posts", response_model=FeedPage)
+def vendor_posts(
+    vendor_id: UUID,
+    response: Response,
+    service: str | None = Query(None, description="Filter by add_service.id; omit/'all' for everything"),
+    limit: int = Query(20, ge=1, le=50),
+    cursor: str | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    """A vendor's posts, newest-first, keyset-paginated, optional service filter."""
+    response.headers["Cache-Control"] = "public, max-age=60"
+    return social_module.get_vendor_posts(
+        db, vendor_id, service=service, limit=limit, cursor=cursor
+    )
+
+
+@router.get("/{vendor_id}/services", response_model=List[VendorServiceChip])
+def vendor_services(
+    vendor_id: UUID,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """Distinct services this vendor offers — for the profile filter chips."""
+    response.headers["Cache-Control"] = "public, max-age=120"
+    return social_module.get_vendor_services(db, vendor_id)
+
+
 @router.get("/{vendor_id}", tags=["Vendor"], response_model=VendorPublicProfile)
-async def get_vendor_by_id(
+def vendor_profile(
     vendor_id: UUID,
     response: Response,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    View another vendor's public profile, including whether you follow them and
-    their follower count. Per-user (is_following) -> not cached.
+    Public profile of a vendor as seen by the current user: header info,
+    follower_count, rating aggregate, and per-user is_following. Per-user field
+    -> not cached.
     """
     response.headers["Cache-Control"] = "private, no-store"
-    return vendor_mdl.get_vendor_public_profile(db, current_user, vendor_id)
+    return social_module.get_vendor_profile(db, current_user, vendor_id)
 
 # ============ SCHEDULE ENDPOINTS ============
 
@@ -221,7 +256,7 @@ async def get_availability(
     """
     if (end_date - start_date).days > 90:
         raise HTTPException(status_code=400, detail="Date range too large (max 90 days)")
-    
+
     return vendor_mdl.generate_availability(
         db, vendor_id, service_id, start_date, end_date
     )

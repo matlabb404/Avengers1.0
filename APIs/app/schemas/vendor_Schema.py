@@ -22,6 +22,33 @@ class VendorCreateBase(BaseModel):
     date_of_birth: date
     business_name: str 
  
+# ── Append to app/schemas/vendor_Schema.py ───────────────────────────────────
+# (Requires: from uuid import UUID; from typing import Optional, List;
+#  from pydantic import BaseModel — already imported in that file.)
+
+
+class VendorPublicProfile(BaseModel):
+    """
+    Another vendor's public profile as seen by the current user.
+    follower_count + rating_* are global; is_following is per-user (so responses
+    carrying it must not be edge-cached).
+    """
+    vendor_id: UUID
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    business_name: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    follower_count: int = 0
+    is_following: bool = False
+    rating_avg: Optional[float] = None
+    rating_count: int = 0
+
+
+class VendorServiceChip(BaseModel):
+    """One distinct service this vendor offers — for the profile filter chips."""
+    id: str
+    name: Optional[str] = None
 
 class VendorDetailsCreateBase(BaseModel):
     description : str
