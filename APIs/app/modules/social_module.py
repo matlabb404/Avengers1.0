@@ -1,11 +1,19 @@
 """
-ACTOR RESOLUTION is the keystone of every social action. resolve_actor() 
-turns a User into exactly one of those, so handlers can set the correct 
-nullable FK (follower_customer_id vs follower_vendor_id, author_customer_id 
-vs author_vendor_id, etc).
+Social features business logic: actor resolution, follow/unfollow, and the
+Following feed.
 
-A User could in principle have both a customer and a vendor profile. 
-if a user has both, vendor takes precedence.
+ACTOR RESOLUTION is the keystone of every social action. A request authenticates
+as a User (via get_current_user), but social rows are attributed to the User's
+*role* — customer or vendor. resolve_actor() turns a User into exactly one of
+those, so handlers can set the correct nullable FK (follower_customer_id vs
+follower_vendor_id, author_customer_id vs author_vendor_id, etc).
+
+A User could in principle have both a customer and a vendor profile. We resolve
+to a single acting role; if a user has both, vendor takes precedence (a vendor
+acting in the app is acting as their business). If you'd rather let the client
+choose the acting role, pass an explicit role hint — see resolve_actor's `prefer`.
+
+Place at: app/modules/social_module.py
 """
 from __future__ import annotations
 
@@ -492,3 +500,446 @@ def get_discover_feed(
         next_cursor = _encode_cursor(last_service.created_at, last_service.id)
 
     return {"items": items, "next_cursor": next_cursor}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# COMMENTS  (+ optional rating, merged into the same row/table)
+# ═════════════════════════════════════════════════════════════════════════════
+#
+# A comment row may carry: body (text), stars (rating), or both. Rules:
+#   - exactly one author (customer xor vendor) — enforced by CHECK + resolve_actor
+#   - has_content: body OR stars (CHECK)
+#   - a rating (stars) REQUIRES a completed booking owned by the actor for THIS
+#     service, and is TOP-LEVEL only (parent_id NULL)
+#   - one rating per booking (uq_comment_rating_per_booking)
+#   - replies are one level deep: a reply (parent_id set) cannot be replied to,
+#     and cannot carry a rating
+#
+# Counter discipline (all in the same commit as the row write):
+#   comment_count += 1   when a row HAS body
+#   rating_count  += 1   and rating_sum += stars   when a row HAS stars
+# A row with both bumps both. Edits/deletes reverse precisely what they changed.
+
+from app.models.social_model import Comment
+
+
+def _resolve_author_columns(actor: Actor) -> dict:
+    return {
+        "author_customer_id": actor.id if actor.is_customer else None,
+        "author_vendor_id": actor.id if actor.is_vendor else None,
+    }
+
+
+def _author_filter(actor: Actor):
+    """Filter selecting comment rows authored by this actor (for edit/delete ownership)."""
+    if actor.is_customer:
+        return and_(
+            Comment.author_customer_id == actor.id,
+            Comment.author_vendor_id.is_(None),
+        )
+    return and_(
+        Comment.author_vendor_id == actor.id,
+        Comment.author_customer_id.is_(None),
+    )
+
+
+def _validate_rating_booking(db: Session, actor: Actor, service_id: UUID, booking_id: UUID):
+    """
+    A rating is only valid if the booking is COMPLETED, owned by the actor's
+    user, and for this service. Raises HTTPException otherwise.
+    """
+    from app.models.booking_model import Booking, BookingStatus
+
+    booking = db.query(Booking).filter(Booking.booking_id == booking_id).first()
+    if not booking:
+        raise HTTPException(404, "Booking not found")
+    if booking.user_id != actor.user_id:
+        raise HTTPException(403, "You can only rate your own bookings")
+    if booking.service_id != service_id:
+        raise HTTPException(400, "Booking does not match this post")
+    if booking.status != BookingStatus.COMPLETED:
+        raise HTTPException(409, "You can only rate a completed booking")
+
+
+def add_comment(
+    db: Session,
+    user: User,
+    service_id: UUID,
+    body: Optional[str] = None,
+    stars: Optional[int] = None,
+    parent_id: Optional[UUID] = None,
+    booking_id: Optional[UUID] = None,
+) -> Comment:
+    """
+    Create a comment and/or rating on a post. Maintains the denormalized counters
+    atomically. See module header for the full rule set.
+    """
+    from app.models.service_model import Service
+
+    actor = resolve_actor(db, user)
+
+    # Content presence (mirrors the DB CHECK, but gives a clean 400).
+    has_body = body is not None and body.strip() != ""
+    has_rating = stars is not None
+    if not has_body and not has_rating:
+        raise HTTPException(400, "A comment must have text, a rating, or both")
+
+    service = db.query(Service).filter(Service.id == service_id).first()
+    if not service:
+        raise HTTPException(404, "Post not found")
+
+    # Threading rules.
+    if parent_id is not None:
+        parent = db.query(Comment).filter(Comment.id == parent_id).first()
+        if not parent:
+            raise HTTPException(404, "Parent comment not found")
+        if parent.service_id != service_id:
+            raise HTTPException(400, "Parent comment belongs to a different post")
+        if parent.parent_id is not None:
+            raise HTTPException(400, "Replies can only be one level deep")
+        if has_rating:
+            raise HTTPException(400, "A rating must be a top-level comment")
+
+    # Rating rules.
+    if has_rating:
+        if not (1 <= stars <= 5):
+            raise HTTPException(400, "Stars must be between 1 and 5")
+        if booking_id is None:
+            raise HTTPException(400, "A rating requires the booking it is based on")
+        _validate_rating_booking(db, actor, service_id, booking_id)
+    else:
+        # No stars -> ignore any stray booking_id (a plain comment isn't tied to one).
+        booking_id = None
+
+    row = Comment(
+        service_id=service_id,
+        body=body if has_body else None,
+        stars=stars if has_rating else None,
+        booking_id=booking_id,
+        parent_id=parent_id,
+        **_resolve_author_columns(actor),
+    )
+    db.add(row)
+    try:
+        db.flush()  # surface uq_comment_rating_per_booking (one rating/booking) as 409
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "You have already rated this booking")
+
+    # Counters — same commit.
+    if has_body:
+        service.comment_count = (service.comment_count or 0) + 1
+    if has_rating:
+        service.rating_count = (service.rating_count or 0) + 1
+        service.rating_sum = (service.rating_sum or 0) + stars
+
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def edit_comment(
+    db: Session,
+    user: User,
+    comment_id: UUID,
+    body: Optional[str] = None,
+    stars: Optional[int] = None,
+) -> Comment:
+    """
+    Edit one's own comment text and/or rating value. Adjusts counters by the
+    DELTA only (e.g. changing stars 4->5 adds 1 to rating_sum; adding text to a
+    rating-only row bumps comment_count). Author-only.
+    """
+    from app.models.service_model import Service
+
+    actor = resolve_actor(db, user)
+    row = (
+        db.query(Comment)
+        .filter(Comment.id == comment_id, _author_filter(actor))
+        .first()
+    )
+    if not row:
+        raise HTTPException(404, "Comment not found")
+
+    service = db.query(Service).filter(Service.id == row.service_id).first()
+
+    # ---- body delta ----
+    if body is not None:
+        new_has_body = body.strip() != ""
+        old_has_body = row.body is not None and row.body.strip() != ""
+        if new_has_body and not old_has_body:
+            service.comment_count = (service.comment_count or 0) + 1
+        elif not new_has_body and old_has_body:
+            service.comment_count = max((service.comment_count or 0) - 1, 0)
+        row.body = body if new_has_body else None
+
+    # ---- stars delta ----
+    if stars is not None:
+        # Editing a rating only makes sense on a row that already IS a rating
+        # (you can't retro-add a rating without going through the booking check).
+        if row.stars is None:
+            raise HTTPException(
+                400,
+                "This comment isn't a rating; create a rating via the booking instead",
+            )
+        if not (1 <= stars <= 5):
+            raise HTTPException(400, "Stars must be between 1 and 5")
+        old_stars = row.stars or 0
+        service.rating_sum = (service.rating_sum or 0) + (stars - old_stars)
+        row.stars = stars
+
+    # Guard: don't let an edit empty the row entirely.
+    if (row.body is None) and (row.stars is None):
+        db.rollback()
+        raise HTTPException(400, "A comment must keep text, a rating, or both")
+
+    from datetime import datetime, timezone
+    row.edited_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def delete_comment(db: Session, user: User, comment_id: UUID) -> dict:
+    """
+    Delete one's own comment. Reverses exactly the counters this row contributed.
+    Deleting a top-level comment cascades to its replies (FK ondelete CASCADE +
+    relationship cascade); each cascaded reply's body also needs to be removed
+    from comment_count, so we account for replies explicitly here.
+    Author-only.
+    """
+    from app.models.service_model import Service
+
+    actor = resolve_actor(db, user)
+    row = (
+        db.query(Comment)
+        .filter(Comment.id == comment_id, _author_filter(actor))
+        .first()
+    )
+    if not row:
+        raise HTTPException(404, "Comment not found")
+
+    service = db.query(Service).filter(Service.id == row.service_id).first()
+
+    # Account for this row's own contributions.
+    body_removed = 1 if (row.body is not None and row.body.strip() != "") else 0
+    rating_removed = 1 if row.stars is not None else 0
+    rating_sum_removed = row.stars or 0
+
+    # Account for replies that will be cascade-deleted (replies never carry
+    # ratings, so only body counts matter).
+    if row.parent_id is None:
+        replies = db.query(Comment).filter(Comment.parent_id == row.id).all()
+        for r in replies:
+            if r.body is not None and r.body.strip() != "":
+                body_removed += 1
+
+    if service:
+        service.comment_count = max((service.comment_count or 0) - body_removed, 0)
+        service.rating_count = max((service.rating_count or 0) - rating_removed, 0)
+        service.rating_sum = max((service.rating_sum or 0) - rating_sum_removed, 0)
+
+    db.delete(row)  # cascade removes replies
+    db.commit()
+    return {"deleted": True}
+
+
+# ── Reads ────────────────────────────────────────────────────────────────────
+
+def list_comments(
+    db: Session, service_id: UUID, limit: int = 20, cursor: Optional[str] = None
+) -> dict:
+    """
+    Top-level comments for a post, newest first, keyset-paginated. Replies are
+    NOT inlined here — fetch them per-parent via list_replies (keeps payloads
+    bounded). Returns {items:[Comment...], next_cursor}.
+    """
+    q = db.query(Comment).filter(
+        Comment.service_id == service_id,
+        Comment.parent_id.is_(None),
+    )
+    if cursor:
+        c_ts, c_id = _decode_cursor(cursor)
+        q = q.filter(
+            or_(
+                Comment.created_at < c_ts,
+                and_(Comment.created_at == c_ts, Comment.id < c_id),
+            )
+        )
+    limit = max(1, min(limit, 50))
+    rows = q.order_by(Comment.created_at.desc(), Comment.id.desc()).limit(limit + 1).all()
+
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    next_cursor = (
+        _encode_cursor(rows[-1].created_at, rows[-1].id) if (has_more and rows) else None
+    )
+    return {"items": rows, "next_cursor": next_cursor}
+
+
+def list_replies(
+    db: Session, parent_id: UUID, limit: int = 20, cursor: Optional[str] = None
+) -> dict:
+    """Replies under a top-level comment, OLDEST first (natural reading order)."""
+    q = db.query(Comment).filter(Comment.parent_id == parent_id)
+    if cursor:
+        c_ts, c_id = _decode_cursor(cursor)
+        q = q.filter(
+            or_(
+                Comment.created_at > c_ts,
+                and_(Comment.created_at == c_ts, Comment.id > c_id),
+            )
+        )
+    limit = max(1, min(limit, 50))
+    rows = q.order_by(Comment.created_at.asc(), Comment.id.asc()).limit(limit + 1).all()
+
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    next_cursor = (
+        _encode_cursor(rows[-1].created_at, rows[-1].id) if (has_more and rows) else None
+    )
+    return {"items": rows, "next_cursor": next_cursor}
+
+
+# ── Comment -> DTO dict (author resolved, reply_count for top-level) ─────────
+
+def resolve_author_names(db: Session, comments: list) -> dict:
+    """
+    Batch-resolve display names for a list of comments in ONE query per actor
+    type (avoids N+1). Returns {("customer"|"vendor", id): name}.
+
+    customer name -> customer.name; vendor name -> Vendor.business_name (falling
+    back to first+last if business_name is blank).
+    """
+    from app.models.customer_model import customer as CustomerModel
+    from app.models.vendor_model import Vendor
+
+    customer_ids = {c.author_customer_id for c in comments if c.author_customer_id is not None}
+    vendor_ids = {c.author_vendor_id for c in comments if c.author_vendor_id is not None}
+
+    names: dict = {}
+
+    if customer_ids:
+        rows = (
+            db.query(CustomerModel.customer_id, CustomerModel.name)
+            .filter(CustomerModel.customer_id.in_(customer_ids))
+            .all()
+        )
+        for cid, name in rows:
+            names[("customer", cid)] = name or "Customer"
+
+    if vendor_ids:
+        rows = (
+            db.query(
+                Vendor.vendor_id, Vendor.business_name, Vendor.first_name, Vendor.last_name
+            )
+            .filter(Vendor.vendor_id.in_(vendor_ids))
+            .all()
+        )
+        for vid, business, first, last in rows:
+            display = business or " ".join(x for x in (first, last) if x) or "Vendor"
+            names[("vendor", vid)] = display
+
+    return names
+
+
+def comment_to_out(
+    db: Session,
+    c: Comment,
+    include_reply_count: bool = True,
+    author_names: dict | None = None,
+) -> dict:
+    """
+    Shape a Comment row into the CommentOut schema: collapse the two author FKs
+    into {kind, id, name}, and (for top-level rows) count replies. Pass
+    include_reply_count=False when rendering replies themselves (always 0).
+
+    author_names: optional pre-resolved {(kind, id): name} map (from
+    resolve_author_names) to avoid an N+1 name lookup per comment. If omitted,
+    the name falls back to a single per-call lookup.
+    """
+    if c.author_customer_id is not None:
+        kind, aid = "customer", c.author_customer_id
+    else:
+        kind, aid = "vendor", c.author_vendor_id
+
+    name = None
+    if author_names is not None:
+        name = author_names.get((kind, aid))
+    if name is None:
+        name = _lookup_single_author_name(db, kind, aid)
+
+    author = {"kind": kind, "id": aid, "name": name}
+
+    reply_count = 0
+    if include_reply_count and c.parent_id is None:
+        reply_count = (
+            db.query(Comment.id).filter(Comment.parent_id == c.id).count()
+        )
+
+    return {
+        "id": c.id,
+        "service_id": c.service_id,
+        "author": author,
+        "body": c.body,
+        "stars": c.stars,
+        "parent_id": c.parent_id,
+        "booking_id": c.booking_id,
+        "created_at": c.created_at,
+        "edited_at": c.edited_at,
+        "reply_count": reply_count,
+    }
+
+
+def _lookup_single_author_name(db: Session, kind: str, aid) -> str:
+    """Single-author name lookup (used when no batched map is provided)."""
+    from app.models.customer_model import customer as CustomerModel
+    from app.models.vendor_model import Vendor
+
+    if kind == "customer":
+        row = db.query(CustomerModel.name).filter(CustomerModel.customer_id == aid).first()
+        return (row[0] if row and row[0] else "Customer")
+    row = (
+        db.query(Vendor.business_name, Vendor.first_name, Vendor.last_name)
+        .filter(Vendor.vendor_id == aid)
+        .first()
+    )
+    if not row:
+        return "Vendor"
+    business, first, last = row
+    return business or " ".join(x for x in (first, last) if x) or "Vendor"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# POST SOCIAL SUMMARY  (for the detail view — one call, counts + per-user flags)
+# ═════════════════════════════════════════════════════════════════════════════
+
+def get_post_social(db: Session, user: User, service_id: UUID) -> dict:
+    """
+    Everything the post-detail (BigPostCard) needs in one round trip:
+      - global counts (like/comment/rating, from denormalized Service columns)
+      - is_liked  (per-user)
+      - the post vendor's is_following + follower_count (per-user + global)
+
+    Auth required (per-user flags). Not cacheable.
+    """
+    from app.models.service_model import Service
+
+    service = db.query(Service).filter(Service.id == service_id).first()
+    if not service:
+        raise HTTPException(404, "Post not found")
+
+    counts = _counts_for(service)  # like_count, comment_count, rating_count, rating_avg
+
+    vendor_id = service.add_vendor_id
+    return {
+        "service_id": service_id,
+        "like_count": counts["like_count"],
+        "comment_count": counts["comment_count"],
+        "rating_count": counts["rating_count"],
+        "rating_avg": counts["rating_avg"],
+        "is_liked": is_liked(db, user, service_id),
+        "vendor_id": vendor_id,
+        "is_following": is_following(db, user, vendor_id),
+        "follower_count": follower_count(db, vendor_id),
+    }
