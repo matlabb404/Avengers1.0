@@ -84,7 +84,7 @@ def vendor_posts(
 ):
     """A vendor's posts, newest-first, keyset-paginated, optional service filter."""
     response.headers["Cache-Control"] = "public, max-age=60"
-    return social_module.get_vendor_posts(
+    return vendor_mdl.get_vendor_posts(
         db, vendor_id, service=service, limit=limit, cursor=cursor
     )
 
