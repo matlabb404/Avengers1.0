@@ -97,7 +97,7 @@ def vendor_services(
 ):
     """Distinct services this vendor offers — for the profile filter chips."""
     response.headers["Cache-Control"] = "public, max-age=120"
-    return social_module.get_vendor_services(db, vendor_id)
+    return vendor_mdl.get_vendor_services(db, vendor_id)
 
 
 @router.get("/{vendor_id}", tags=["Vendor"], response_model=VendorPublicProfile)
@@ -113,7 +113,7 @@ def vendor_profile(
     -> not cached.
     """
     response.headers["Cache-Control"] = "private, no-store"
-    return social_module.get_vendor_profile(db, current_user, vendor_id)
+    return vendor_mdl.get_vendor_profile(db, current_user, vendor_id)
 
 # ============ SCHEDULE ENDPOINTS ============
 
