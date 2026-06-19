@@ -4,12 +4,15 @@ across Vendors and Services in one call.
 
 Scoring per row: GREATEST(similarity(text, q), ts_rank(search_tsv, query)).
 - similarity() catches typos / partial spellings ("braed" -> "bread braiding").
-- ts_rank() rewards proper keyword matches and respects the weights (A/B/C) set
+- ts_rank() rewards proper keyword matches and respects the A/B/C weights set
   on the generated tsvector columns.
+
+Requires pg_trgm + the generated tsvector columns + GIN indexes (created via the
+model definitions). The trigram match operator is a single `%`; with SQLAlchemy
+text() and named (:q) params it is written literally as `%` (NOT `%%`).
 """
 
 from typing import Optional
-from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -38,8 +41,8 @@ def search_vendors(db: Session, q: str, limit: int = 20) -> list[dict]:
         FROM "Vendor" v
         WHERE
             v.search_tsv @@ plainto_tsquery('simple', :q)
-            OR coalesce(v.business_name, '') %% :q
-            OR coalesce(v.city, '') %% :q
+            OR coalesce(v.business_name, '') % :q
+            OR coalesce(v.city, '') % :q
         ORDER BY score DESC, v.business_name ASC
         LIMIT :limit
         """
@@ -63,8 +66,8 @@ def search_vendors(db: Session, q: str, limit: int = 20) -> list[dict]:
 def search_services(db: Session, q: str, limit: int = 20) -> list[dict]:
     """
     Services ranked by blended score over the service NAME (add_service) and the
-    post DESCRIPTION (services). Joins to Vendor + add_service so each result can
-    render a full row (name, vendor, thumbnail handled client-side via post id).
+    post DESCRIPTION (services). Joins Vendor + add_service so each result can
+    render a full row.
     """
     sql = text(
         """
@@ -92,8 +95,8 @@ def search_services(db: Session, q: str, limit: int = 20) -> list[dict]:
         WHERE
             a.search_tsv @@ plainto_tsquery('simple', :q)
             OR s.search_tsv @@ plainto_tsquery('simple', :q)
-            OR coalesce(a.service_name, '') %% :q
-            OR coalesce(s.description, '') %% :q
+            OR coalesce(a.service_name, '') % :q
+            OR coalesce(s.description, '') % :q
         ORDER BY score DESC, a.service_name ASC
         LIMIT :limit
         """
