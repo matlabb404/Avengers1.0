@@ -1,7 +1,8 @@
 from app.config.db.postgresql import Base
-from sqlalchemy import Column, Integer, String, Boolean, Time, Date, Enum, UUID, ForeignKey, JSON, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, String, Boolean, Time, Date, Enum, UUID, ForeignKey, JSON, UniqueConstraint, Index, Computed
 from app.schemas.vendor_Schema import Gender
 from app.utils.mixins import TimestampMixin
+from sqlalchemy.dialects.postgresql import TSVECTOR
 import uuid 
 from sqlalchemy.orm import relationship
 
@@ -23,6 +24,21 @@ class Vendor(TimestampMixin, Base):
     date_of_birth = Column(Date)
     business_name = Column(String)
     phone_no = Column(String(50))
+
+    # ── Search: weighted full-text vector (generated/STORED) ──────────────
+    # business_name (A) > first/last name (B) > city (C). plus trigram indexes
+    # on the raw text columns (declared in __table_args__) for typo tolerance.
+    search_tsv = Column(
+        TSVECTOR,
+        Computed(
+            "setweight(to_tsvector('simple', coalesce(business_name, '')), 'A') || "
+            "setweight(to_tsvector('simple', coalesce(first_name, '')), 'B') || "
+            "setweight(to_tsvector('simple', coalesce(last_name, '')), 'B') || "
+            "setweight(to_tsvector('simple', coalesce(city, '')), 'C')",
+            persisted=True,
+        ),
+        nullable=True,
+    )
 
     vendor_details = relationship("Vendor_Details", uselist=False, back_populates="vendor")
 
@@ -53,6 +69,20 @@ class Vendor(TimestampMixin, Base):
         foreign_keys="Like.liker_vendor_id",
         back_populates="liker_vendor",
         cascade="all, delete-orphan",
+    )
+
+    # ── Search indexes ────────────────────────────────────────────────────
+    # GIN over the tsvector (full-text) + GIN trigram over the fuzzy text cols.
+    __table_args__ = (
+        Index("vendor_search_tsv_gin", "search_tsv", postgresql_using="gin"),
+        Index(
+            "vendor_business_name_trgm", "business_name",
+            postgresql_using="gin", postgresql_ops={"business_name": "gin_trgm_ops"},
+        ),
+        Index(
+            "vendor_city_trgm", "city",
+            postgresql_using="gin", postgresql_ops={"city": "gin_trgm_ops"},
+        ),
     )
 
 class Vendor_Details(TimestampMixin, Base):

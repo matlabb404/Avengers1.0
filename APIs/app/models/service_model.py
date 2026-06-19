@@ -1,11 +1,10 @@
 from app.config.db.postgresql import Base
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, TSVECTOR
 import uuid
-from sqlalchemy import Column, DateTime, Integer, String, TIMESTAMP, Boolean, text, Date, Enum, UUID, ForeignKey, ARRAY, Float
+from sqlalchemy import Column, Computed, Integer, String, Index, Enum, UUID, ForeignKey, ARRAY, Float
 from sqlalchemy.orm import relationship
 from app.models.payment_model import Currency
 from app.utils.mixins import TimestampMixin
-from datetime import datetime, timezone
 
 class Add_Service(TimestampMixin, Base):
    __tablename__ = "add_service"
@@ -15,7 +14,25 @@ class Add_Service(TimestampMixin, Base):
    interval_minutes = Column(Integer)
    vendor_id = Column(String)
    
+   # ── Search: full-text vector over the service name (generated/STORED) ──
+   search_tsv = Column(
+       TSVECTOR,
+       Computed(
+           "setweight(to_tsvector('simple', coalesce(service_name, '')), 'A')",
+           persisted=True,
+       ),
+       nullable=True,
+   )
+
    service_relation = relationship("Service", back_populates="add_service", uselist=False)
+
+   __table_args__ = (
+       Index("add_service_search_tsv_gin", "search_tsv", postgresql_using="gin"),
+       Index(
+           "add_service_name_trgm", "service_name",
+           postgresql_using="gin", postgresql_ops={"service_name": "gin_trgm_ops"},
+       ),
+   )
 
 class Service(TimestampMixin, Base):
    __tablename__ = "services"
@@ -32,6 +49,16 @@ class Service(TimestampMixin, Base):
    rating_count = Column(Integer, nullable=False, default=0, server_default="0")
    rating_sum = Column(Integer, nullable=False, default=0, server_default="0")
 
+   # ── Search: full-text vector over the post description (generated/STORED) ──
+   search_tsv = Column(
+       TSVECTOR,
+       Computed(
+           "setweight(to_tsvector('simple', coalesce(description, '')), 'B')",
+           persisted=True,
+       ),
+       nullable=True,
+   )
+
    # Define relationships
    add_service = relationship("Add_Service",uselist=False, back_populates="service_relation")
 
@@ -44,6 +71,14 @@ class Service(TimestampMixin, Base):
    )
    likes = relationship(
        "Like", back_populates="service", cascade="all, delete-orphan"
+   )
+
+   __table_args__ = (
+       Index("services_search_tsv_gin", "search_tsv", postgresql_using="gin"),
+       Index(
+           "services_description_trgm", "description",
+           postgresql_using="gin", postgresql_ops={"description": "gin_trgm_ops"},
+       ),
    )
 
 class price_history(TimestampMixin, Base):
