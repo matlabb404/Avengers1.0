@@ -116,7 +116,7 @@ def search_services(db: Session, q: str, limit: int = 20) -> list[dict]:
                 "description": r["description"],
                 "vendor_id": r["vendor_id"],
                 "business_name": r["business_name"],
-                "asset_ids": r["asset_ids"] or [],
+                "asset_ids": [str(a) for a in (r["asset_ids"] or [])],
                 "like_count": r["like_count"] or 0,
                 "comment_count": r["comment_count"] or 0,
                 "rating_count": rating_count,
