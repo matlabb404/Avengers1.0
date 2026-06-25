@@ -1,4 +1,4 @@
-from app.realtime.chat_ws import chat_ws
+from app.realtime import chat_ws
 from fastapi import FastAPI
 from app.routers import (apis_test_router, media_router, posts_router, vendor_router,
 account_router, customer_router, service_router, booking_router, payment_router,

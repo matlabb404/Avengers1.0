@@ -1,12 +1,3 @@
-"""
-Mount in main.py:
-    from app.realtime import chat_ws
-    app.include_router(chat_ws.router)
-    @app.on_event("startup")
-    async def _start_chat_pubsub(): await chat_ws.start_pubsub()
-    @app.on_event("shutdown")
-    async def _stop_chat_pubsub(): await chat_ws.stop_pubsub()
-"""
 from app.config.settings import get_settings
 import asyncio
 import json
