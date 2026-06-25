@@ -2,18 +2,13 @@ from app.utils.money import from_minor_units
 from fastapi import HTTPException
 from app.models import booking_model, vendor_model
 from sqlalchemy.orm import Session
-import json
 from app.schemas import booking_schema
-from app.config.db.postgresql import SessionLocal
 from app.models.booking_model import Booking, BookingStatus
 from app.models.service_model import Service, Add_Service, price_history
 from app.models.vendor_model import Vendor
-from sqlalchemy.dialects import postgresql
 from uuid import UUID
 from datetime import timezone, datetime, date, timedelta
-from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from collections import Counter
 from typing import List
 from app.models.payment_model import PaymentStatus
 

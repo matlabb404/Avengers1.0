@@ -1,7 +1,9 @@
+from app.realtime.chat_ws import chat_ws
 from fastapi import FastAPI
 from app.routers import (apis_test_router, media_router, posts_router, vendor_router,
 account_router, customer_router, service_router, booking_router, payment_router,
-following_router, likes_router, discover_router, comments_router, explore_router, search_router)
+following_router, likes_router, discover_router, comments_router, explore_router, search_router,
+chat_router)
 from app.config.db.postgresql import Base, engine
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -40,3 +42,12 @@ app.include_router(following_router.router)
 app.include_router(discover_router.router)
 app.include_router(explore_router.router)
 app.include_router(search_router.router)
+app.include_router(chat_router.router)
+
+@app.on_event("startup")
+async def _start_chat_pubsub():
+    await chat_ws.start_pubsub()
+
+@app.on_event("shutdown")
+async def _stop_chat_pubsub():
+    await chat_ws.stop_pubsub()
