@@ -30,6 +30,8 @@ from app.models.account_model import User
 from app.models.customer_model import customer
 from app.models.vendor_model import Vendor
 from app.models.social_model import Following
+from app.modules import notification_module as nm
+from app.models.notification_model import NotificationType, NotificationTarget
 
 
 ActorKind = Literal["customer", "vendor"]
@@ -137,6 +139,22 @@ def follow_vendor(db: Session, user: User, vendor_id: UUID) -> dict:
     )
     db.add(row)
     try:
+        # Notify the followed vendor's owner in the SAME transaction. If this is a
+        # duplicate follow, the commit below trips IntegrityError and the whole
+        # thing (incl. this notification) rolls back -> no duplicate notification.
+        owner_id = nm.vendor_owner_user_id(db, vendor_id)
+        if owner_id is not None:
+            nm.notify(
+                db,
+                recipient_user_id=owner_id,
+                type=NotificationType.FOLLOW,
+                actor_user_id=actor.user_id,
+                actor_name=_lookup_single_author_name(db, actor.kind, actor.id),
+                target_type=NotificationTarget.VENDOR,
+                target_id=str(vendor_id),
+                preview="started following you",
+                commit=False,
+            )
         db.commit()
     except IntegrityError:
         # uq_following violated -> already following. Idempotent success.
@@ -348,6 +366,22 @@ def like_post(db: Session, user: User, service_id: UUID) -> dict:
         return {"liked": True, "already": True, "like_count": service.like_count or 0}
 
     service.like_count = (service.like_count or 0) + 1
+
+    # Notify the post owner (same transaction). Self-like is guarded in notify().
+    owner_id = nm.service_owner_user_id(db, service_id)
+    if owner_id is not None:
+        nm.notify(
+            db,
+            recipient_user_id=owner_id,
+            type=NotificationType.LIKE,
+            actor_user_id=actor.user_id,
+            actor_name=_lookup_single_author_name(db, actor.kind, actor.id),
+            target_type=NotificationTarget.SERVICE,
+            target_id=str(service_id),
+            preview="liked your post",
+            commit=False,
+        )
+
     db.commit()
     return {"liked": True, "already": False, "like_count": service.like_count}
 
@@ -632,6 +666,60 @@ def add_comment(
     if has_rating:
         service.rating_count = (service.rating_count or 0) + 1
         service.rating_sum = (service.rating_sum or 0) + stars
+
+    # ── Notification (same transaction) ──────────────────────────────────────
+    # Recipient depends on depth:
+    #   reply (parent_id set) -> the PARENT comment's author
+    #   top-level             -> the POST OWNER
+    # A row with BOTH text + rating collapses to a single RATING notification.
+    actor_name = _lookup_single_author_name(db, actor.kind, actor.id)
+
+    if parent_id is not None:
+        # Reply -> notify the parent comment's author (not the post owner).
+        parent = db.query(Comment).filter(Comment.id == parent_id).first()
+        recipient_user_id = _comment_author_user_id(db, parent) if parent else None
+        if recipient_user_id is not None:
+            nm.notify(
+                db,
+                recipient_user_id=recipient_user_id,
+                type=NotificationType.COMMENT,
+                actor_user_id=actor.user_id,
+                actor_name=actor_name,
+                target_type=NotificationTarget.SERVICE,
+                target_id=str(service_id),
+                preview=(body or "").strip()[:120] or "replied to your comment",
+                commit=False,
+            )
+    else:
+        # Top-level -> notify the post owner.
+        owner_id = nm.service_owner_user_id(db, service_id)
+        if owner_id is not None:
+            if has_rating:
+                stars_str = "★" * int(stars)
+                text_part = f" — {body.strip()[:100]}" if has_body else ""
+                nm.notify(
+                    db,
+                    recipient_user_id=owner_id,
+                    type=NotificationType.RATING,
+                    actor_user_id=actor.user_id,
+                    actor_name=actor_name,
+                    target_type=NotificationTarget.SERVICE,
+                    target_id=str(service_id),
+                    preview=f"rated your service {stars_str}{text_part}",
+                    commit=False,
+                )
+            elif has_body:
+                nm.notify(
+                    db,
+                    recipient_user_id=owner_id,
+                    type=NotificationType.COMMENT,
+                    actor_user_id=actor.user_id,
+                    actor_name=actor_name,
+                    target_type=NotificationTarget.SERVICE,
+                    target_id=str(service_id),
+                    preview=body.strip()[:120],
+                    commit=False,
+                )
 
     db.commit()
     db.refresh(row)
@@ -943,3 +1031,23 @@ def get_post_social(db: Session, user: User, service_id: UUID) -> dict:
         "is_following": is_following(db, user, vendor_id),
         "follower_count": follower_count(db, vendor_id),
     }
+
+def _comment_author_user_id(db: Session, c) -> Optional[UUID]:
+    """A Comment -> its author's USER id (customer.user_id or Vendor.user_id)."""
+    if c is None:
+        return None
+    if c.author_customer_id is not None:
+        row = (
+            db.query(customer.user_id)
+            .filter(customer.customer_id == c.author_customer_id)
+            .first()
+        )
+        return row[0] if row else None
+    if c.author_vendor_id is not None:
+        row = (
+            db.query(Vendor.user_id)
+            .filter(Vendor.vendor_id == c.author_vendor_id)
+            .first()
+        )
+        return row[0] if row else None
+    return None

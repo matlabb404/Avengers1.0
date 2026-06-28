@@ -339,5 +339,5 @@ def notify_message(
     if commit:
         db.commit()
         db.refresh(notif)
-    # FCM hook (later): if pref["push"]: enqueue_push(notif)
+    #TODO FCM hook (later): if pref["push"]: enqueue_push(notif)
     return notif
