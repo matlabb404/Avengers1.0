@@ -43,6 +43,7 @@ app.include_router(discover_router.router)
 app.include_router(explore_router.router)
 app.include_router(search_router.router)
 app.include_router(chat_router.router)
+app.include_router(chat_ws.router)
 
 @app.on_event("startup")
 async def _start_chat_pubsub():
