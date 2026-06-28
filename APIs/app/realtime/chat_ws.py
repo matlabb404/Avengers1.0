@@ -7,6 +7,7 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from redis import asyncio as aioredis
 
 from app.config.db.postgresql import SessionLocal
+import app.models  # register ALL models (relationships like User->Booking) before any query
 
 router = APIRouter()
 
