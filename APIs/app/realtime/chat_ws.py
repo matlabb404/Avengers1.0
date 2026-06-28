@@ -278,6 +278,7 @@ async def _authenticate(token: str, role: str) -> Optional[str]:
     we look the User up by email, then resolve their UUID. For role=VENDOR we map
     to their vendor via Vendor.user_id (same as /Account/user/exists).
     """
+    print(f"[chat_ws] auth: ENTER role={role!r} token_len={len(token) if token else 0}", flush=True)
     try:
         from jose import jwt, JWTError
         from app.config.settings import get_settings
@@ -285,14 +286,14 @@ async def _authenticate(token: str, role: str) -> Optional[str]:
         try:
             payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         except JWTError as e:
-            print(f"[chat_ws] auth: JWT decode failed: {e!r}")
+            print(f"[chat_ws] auth: JWT decode failed: {e!r}", flush=True)
             return None
         email = payload.get("sub")
         if not email:
-            print("[chat_ws] auth: token has no 'sub' claim")
+            print("[chat_ws] auth: token has no 'sub' claim", flush=True)
             return None
     except Exception as e:
-        print(f"[chat_ws] auth: unexpected error before user lookup: {e!r}")
+        print(f"[chat_ws] auth: unexpected error before user lookup: {e!r}", flush=True)
         return None
 
     db = SessionLocal()
@@ -301,7 +302,7 @@ async def _authenticate(token: str, role: str) -> Optional[str]:
         try:
             user = db.query(User).filter(User.email == email).first()
             if user is None:
-                print(f"[chat_ws] auth: no user for email {email!r}")
+                print(f"[chat_ws] auth: no user for email {email!r}", flush=True)
                 return None
 
             r = (role or "CUSTOMER").upper()
@@ -309,12 +310,12 @@ async def _authenticate(token: str, role: str) -> Optional[str]:
                 from app.models.vendor_model import Vendor
                 v = db.query(Vendor).filter(Vendor.user_id == user.id).first()
                 if v is None:
-                    print(f"[chat_ws] auth: user {email!r} has no vendor row")
+                    print(f"[chat_ws] auth: user {email!r} has no vendor row", flush=True)
                     return None
                 return f"vendor:{v.vendor_id}"
             return f"user:{user.id}"
         except Exception as e:
-            print(f"[chat_ws] auth: lookup error: {e!r}")
+            print(f"[chat_ws] auth: lookup error: {e!r}", flush=True)
             return None
     finally:
         db.close()
