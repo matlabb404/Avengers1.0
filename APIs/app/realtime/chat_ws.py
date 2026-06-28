@@ -7,7 +7,19 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from redis import asyncio as aioredis
 
 from app.config.db.postgresql import SessionLocal
-import app.models  # register ALL models (relationships like User->Booking) before any query
+# Register ALL model modules so SQLAlchemy can resolve string-based relationships
+# (e.g. User.relationship("Booking")). There is no app/models/__init__.py that
+# re-exports these, so we import the modules explicitly. Add any others your
+# User/Vendor mappers reference via string names.
+import app.models.account_model      # User (users)
+import app.models.vendor_model       # Vendor
+import app.models.customer_model     # customer
+import app.models.booking_model      # Booking  <-- the one that was missing
+import app.models.service_model      # services / add_service
+import app.models.media_model        # media_assets
+import app.models.payment_model      # payments
+import app.models.social_model       # social
+import app.models.chat_model         # conversations / messages
 
 router = APIRouter()
 
@@ -272,28 +284,37 @@ async def _authenticate(token: str, role: str) -> Optional[str]:
         settings = get_settings()
         try:
             payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        except JWTError:
+        except JWTError as e:
+            print(f"[chat_ws] auth: JWT decode failed: {e!r}")
             return None
         email = payload.get("sub")
         if not email:
+            print("[chat_ws] auth: token has no 'sub' claim")
             return None
-    except Exception:
+    except Exception as e:
+        print(f"[chat_ws] auth: unexpected error before user lookup: {e!r}")
         return None
 
     db = SessionLocal()
     try:
         from app.models.account_model import User
-        user = db.query(User).filter(User.email == email).first()
-        if user is None:
-            return None
-
-        r = (role or "CUSTOMER").upper()
-        if r == "VENDOR":
-            from app.models.vendor_model import Vendor
-            v = db.query(Vendor).filter(Vendor.user_id == user.id).first()
-            if v is None:
+        try:
+            user = db.query(User).filter(User.email == email).first()
+            if user is None:
+                print(f"[chat_ws] auth: no user for email {email!r}")
                 return None
-            return f"vendor:{v.vendor_id}"
-        return f"user:{user.id}"
+
+            r = (role or "CUSTOMER").upper()
+            if r == "VENDOR":
+                from app.models.vendor_model import Vendor
+                v = db.query(Vendor).filter(Vendor.user_id == user.id).first()
+                if v is None:
+                    print(f"[chat_ws] auth: user {email!r} has no vendor row")
+                    return None
+                return f"vendor:{v.vendor_id}"
+            return f"user:{user.id}"
+        except Exception as e:
+            print(f"[chat_ws] auth: lookup error: {e!r}")
+            return None
     finally:
         db.close()
