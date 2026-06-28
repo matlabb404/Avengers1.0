@@ -1,15 +1,13 @@
-from app.config.settings import get_settings
 import asyncio
 import json
 from typing import Optional
 from uuid import UUID
-from jose import jwt
+
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from redis import asyncio as aioredis
 
 from app.config.db.postgresql import SessionLocal
 
-settings = get_settings()
 router = APIRouter()
 
 # ── Redis ─────────────────────────────────────────────────────────────────────
@@ -258,27 +256,43 @@ async def _relay_typing(sender_identity: str, conversation_id: str, typing_role)
 
 async def _authenticate(token: str, role: str) -> Optional[str]:
     """
-    Validate the JWT and return the caller's identity_key:
-        "user:{uuid}"   for a CUSTOMER
-        "vendor:{uuid}" for a VENDOR
+    Validate the JWT (same secret/alg as account_module) and return the caller's
+    identity_key:
+        "user:{user_uuid}"   for a CUSTOMER
+        "vendor:{vendor_uuid}" for a VENDOR
+
+    Matches account_module.get_current_user: the token claim `sub` is the EMAIL;
+    we look the User up by email, then resolve their UUID. For role=VENDOR we map
+    to their vendor via Vendor.user_id (same as /Account/user/exists).
     """
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        user_id = payload.get("sub") or payload.get("user_id")
-        if not user_id:
+        from jose import jwt, JWTError
+        from app.config.settings import get_settings
+        settings = get_settings()
+        try:
+            payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        except JWTError:
+            return None
+        email = payload.get("sub")
+        if not email:
             return None
     except Exception:
         return None
 
-    r = (role or "CUSTOMER").upper()
-    if r == "VENDOR":
-        db = SessionLocal()
-        try:
+    db = SessionLocal()
+    try:
+        from app.models.account_model import User
+        user = db.query(User).filter(User.email == email).first()
+        if user is None:
+            return None
+
+        r = (role or "CUSTOMER").upper()
+        if r == "VENDOR":
             from app.models.vendor_model import Vendor
-            v = db.query(Vendor).filter(Vendor.user_id == user_id).first()
+            v = db.query(Vendor).filter(Vendor.user_id == user.id).first()
             if v is None:
                 return None
             return f"vendor:{v.vendor_id}"
-        finally:
-            db.close()
-    return f"user:{user_id}"
+        return f"user:{user.id}"
+    finally:
+        db.close()

@@ -14,7 +14,11 @@ from app.schemas.chat_schema import (
     OpenConversationRequest,
     SendMessageRequest,
 )
-from app.modules.account_module import get_current_user
+
+# ── ASSUMPTION #1: auth dependency ────────────────────────────────────────────
+# Replace this import with your real one if it lives elsewhere / is named
+# differently. It must yield an object exposing `.id` (user UUID).
+from app.modules.account_module import get_current_user  # real auth dependency
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 

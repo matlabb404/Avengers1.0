@@ -23,4 +23,5 @@ python-dotenv
 botocore
 arq 
 blurhash-python
+websockets
 # subprocess
