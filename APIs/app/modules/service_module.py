@@ -12,6 +12,31 @@ def add_s(db:Session, strid:str ,service: str, interval_minutes:int, vendor_id:s
     db.add(db_service)
     db.commit()
     db.refresh(db_service)
+
+    # Fan out NEW_SERVICE to the vendor's followers (background arq). Never fail add.
+    try:
+        from app.services import queue
+        from app.models.vendor_model import Vendor
+        from app.models.notification_model import NotificationTarget
+        v = db.query(Vendor).filter(Vendor.vendor_id == vendor_id).first()
+        vendor_name = None
+        if v is not None:
+            vendor_name = (
+                v.business_name
+                or " ".join(x for x in (v.first_name, v.last_name) if x)
+                or "A vendor you follow"
+            )
+        queue.enqueue_new_service_fanout_sync(
+            target_id=strid,
+            vendor_id=vendor_id,
+            is_big=False,                       # Add_Service -> NEW_SERVICE
+            target_type=NotificationTarget.OFFERING,
+            actor_name=vendor_name,
+            preview=(service or "added a new service")[:120],
+        )
+    except Exception:
+        pass
+
     return {"Service Added Successfully" :db_service}
 
 def update_s(db:Session, strid:str, service:str, interval_minutes:int, vendor_id: str):

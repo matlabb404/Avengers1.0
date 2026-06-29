@@ -8,6 +8,7 @@ from app.config.db.postgresql import Base, engine
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 import app.handlers.notification_handlers  # noqa: F401 — side-effect import
+import app.events.notification_events  # registers booking notification handlers
 
 # flush the db on every run 
 # Base.metadata.drop_all(bind=engine)

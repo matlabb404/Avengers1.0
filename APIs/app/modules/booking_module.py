@@ -1,8 +1,10 @@
+from app.models.notification_model import NotificationTarget, NotificationType
 from app.utils.money import from_minor_units
 from fastapi import HTTPException
 from app.models import booking_model, vendor_model
 from sqlalchemy.orm import Session
 from app.schemas import booking_schema
+from app.modules import notification_module as nm
 from app.models.booking_model import Booking, BookingStatus
 from app.models.service_model import Service, Add_Service, price_history
 from app.models.vendor_model import Vendor
@@ -97,6 +99,44 @@ def add_booking(db: Session, book: booking_schema.BookingCreate, user_id_request
         )
 
         db.add(new_booking)
+        db.flush()
+
+        # Notify the vendor owner that their service was booked (same transaction).
+        owner_id = nm.service_owner_user_id(db, book.service_id)
+        if owner_id is not None:
+            nm.notify(
+                db,
+                recipient_user_id=owner_id,
+                type=NotificationType.BOOKING_NEW,
+                actor_user_id=user_id_request,
+                actor_name=None,  # optional: resolve the customer's name if you have it
+                target_type=NotificationTarget.BOOKING,
+                target_id=str(new_booking.booking_id),
+                preview="booked your service",
+                vendor_id=service.add_vendor_id,   # for per-vendor mute checks
+                commit=False,
+            )
+
+        db.commit()
+        db.add(new_booking)
+        db.flush()
+
+        # Notify the vendor owner that their service was booked (same transaction).
+        owner_id = nm.service_owner_user_id(db, book.service_id)
+        if owner_id is not None:
+            nm.notify(
+                db,
+                recipient_user_id=owner_id,
+                type=NotificationType.BOOKING_NEW,
+                actor_user_id=user_id_request,
+                actor_name=None,  # optional: resolve the customer's name if you have it
+                target_type=NotificationTarget.BOOKING,
+                target_id=str(new_booking.booking_id),
+                preview="booked your service",
+                vendor_id=service.add_vendor_id,   # for per-vendor mute checks
+                commit=False,
+            )
+
         db.commit()
         db.refresh(new_booking)
 
@@ -162,6 +202,43 @@ def cancel_booking(db:Session, user_id_request:str, booking_id_request : str):
         slot.booked = max(slot.booked - 1, 0)
 
     db_query.status = BookingStatus.CANCELLED
+
+    # Resolve the vendor owner for this booking's service.
+    owner_id = nm.service_owner_user_id(db, db_query.service_id)
+    # We also need the vendor_id for mute checks.
+    from app.models.service_model import Service as _Service
+    svc = db.query(_Service.add_vendor_id).filter(_Service.id == db_query.service_id).first()
+    vendor_id = svc[0] if svc else None
+
+    # Notify the vendor: a booking was cancelled by the customer.
+    if owner_id is not None:
+        nm.notify(
+            db,
+            recipient_user_id=owner_id,
+            type=NotificationType.BOOKING_CANCELLED,
+            actor_user_id=user_id_request,
+            actor_name=None,
+            target_type=NotificationTarget.BOOKING,
+            target_id=str(db_query.booking_id),
+            preview="cancelled their booking",
+            vendor_id=vendor_id,
+            commit=False,
+        )
+
+    # Confirm to the customer that THEIR cancellation went through.
+    nm.notify(
+        db,
+        recipient_user_id=db_query.user_id,
+        type=NotificationType.BOOKING_CANCELLED,
+        actor_user_id=None,                 # system/self confirmation
+        actor_name=None,
+        target_type=NotificationTarget.BOOKING,
+        target_id=str(db_query.booking_id),
+        preview="Your booking was cancelled",
+        vendor_id=vendor_id,
+        commit=False,
+    )
+
     db.commit()
     return "Booking deleted Successfully"
 

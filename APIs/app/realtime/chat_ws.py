@@ -11,16 +11,16 @@ from app.config.db.postgresql import SessionLocal
 # (e.g. User.relationship("Booking")). There is no app/models/__init__.py that
 # re-exports these, so we import the modules explicitly. Add any others your
 # User/Vendor mappers reference via string names.
-import app.models.account_model      # User (users)
-import app.models.vendor_model       # Vendor
-import app.models.customer_model     # customer
-import app.models.booking_model      # Booking  <-- the one that was missing
-import app.models.service_model      # services / add_service
-import app.models.media_model        # media_assets
-import app.models.payment_model      # payments
-import app.models.social_model       # social
-import app.models.chat_model         # conversations / messages
-import app.models.notification_model         # notifs 
+import app.models.account_model         # User (users)
+import app.models.vendor_model          # Vendor
+import app.models.customer_model        # customer
+import app.models.booking_model         # Booking  <-- the one that was missing
+import app.models.service_model         # services / add_service
+import app.models.media_model           # media_assets
+import app.models.payment_model         # payments
+import app.models.social_model          # social
+import app.models.chat_model            # conversations / messages
+import app.models.notification_model    # notifs 
 
 router = APIRouter()
 

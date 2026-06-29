@@ -34,13 +34,16 @@ from app.config.db.postgresql import SessionLocal
 from app.models.media_model import MediaAsset, MediaKind, MediaStatus
 from app.models import (  
     account_model,
-    booking_model,
-    customer_model,
-    vendor_model,
-    service_model,
-    payment_model,
     api_test_model,
+    booking_model,
+    chat_model,
+    customer_model,
+    media_model,
+    notification_model,
+    payment_model,
+    service_model,
     social_model,
+    vendor_model,
 )
 from app.modules import media_module
 from app.services import queue
@@ -196,11 +199,41 @@ def _poster_key(object_key: str) -> str:
 
 
 # ─────────────────────────────────────────────────────────────
+# For notifs
+# ─────────────────────────────────────────────────────────────
+async def fanout_new_service_task(ctx, target_id: str, vendor_id: str,
+                                  is_big: bool, target_type: str | None,
+                                  actor_name: str | None, preview: str | None):
+    await asyncio.to_thread(
+        _fanout_new_service_sync, target_id, vendor_id, is_big, target_type,
+        actor_name, preview
+    )
+
+
+def _fanout_new_service_sync(target_id, vendor_id, is_big, target_type, actor_name, preview):
+    from app.modules import notification_module as nm
+    from app.models import notification_model  # register the model in this process
+    db = SessionLocal()
+    try:
+        n = nm.fanout_new_service(
+            db,
+            target_id=target_id,
+            vendor_id=vendor_id,
+            is_big=bool(is_big),
+            target_type=target_type,
+            actor_name=actor_name,
+            preview=preview,
+        )
+        logger.info("new-service fanout: %s notifications for target=%s", n, target_id)
+    finally:
+        db.close()
+
+# ─────────────────────────────────────────────────────────────
 # arq worker settings
 # ─────────────────────────────────────────────────────────────
 
 class WorkerSettings:
-    functions = [process_media]
+    functions = [process_media, fanout_new_service_task]
     cron_jobs = [cron(reap_orphans_job, minute=set(range(0, 60, 10)))]  # every 10 min
     redis_settings = queue.redis_settings()
     max_jobs = 10

@@ -23,7 +23,8 @@ from app.models.notification_model import (
     Notification,
     NotificationPreference,
     NotificationType,
-    NotificationTarget
+    NotificationTarget,
+    VendorNotificationMute
 )
 from app.schemas.notification_schema import (
     NotificationCreate,
@@ -101,18 +102,126 @@ def update_preferences(
     return get_preferences(db, user_id)
 
 
+# ── Per-vendor mute (per-type) ────────────────────────────────────────────────
+
+def is_vendor_muted(db: Session, user_id: UUID, vendor_id, ntype: str) -> bool:
+    """True if this user has muted this vendor for this notification type."""
+    if vendor_id is None:
+        return False
+    row = (
+        db.query(VendorNotificationMute.user_id)
+        .filter(
+            VendorNotificationMute.user_id == user_id,
+            VendorNotificationMute.vendor_id == vendor_id,
+            VendorNotificationMute.type == ntype,
+        )
+        .first()
+    )
+    return row is not None
+
+
+def muted_user_ids(db: Session, vendor_id, ntype: str, candidate_user_ids) -> set:
+    """
+    Bulk: of `candidate_user_ids`, which have muted this vendor for this type?
+    One query — used by the fan-out to hide notifications for muted followers.
+    """
+    if not candidate_user_ids:
+        return set()
+    rows = (
+        db.query(VendorNotificationMute.user_id)
+        .filter(
+            VendorNotificationMute.vendor_id == vendor_id,
+            VendorNotificationMute.type == ntype,
+            VendorNotificationMute.user_id.in_(candidate_user_ids),
+        )
+        .all()
+    )
+    return {r[0] for r in rows}
+
+
+def set_vendor_mute(db: Session, user_id: UUID, vendor_id, ntype: str, muted: bool) -> bool:
+    """
+    Mute (muted=True) or unmute (muted=False) a vendor for one type. Idempotent.
+    Returns the resulting muted state.
+    """
+    if ntype not in NotificationType.ALL:
+        raise ValueError(f"Unknown notification type: {ntype}")
+
+    existing = (
+        db.query(VendorNotificationMute)
+        .filter(
+            VendorNotificationMute.user_id == user_id,
+            VendorNotificationMute.vendor_id == vendor_id,
+            VendorNotificationMute.type == ntype,
+        )
+        .first()
+    )
+    if muted and existing is None:
+        db.add(VendorNotificationMute(user_id=user_id, vendor_id=vendor_id, type=ntype))
+        db.commit()
+    elif not muted and existing is not None:
+        db.delete(existing)
+        db.commit()
+    return muted
+
+
+def list_vendor_mutes(db: Session, user_id: UUID, vendor_id) -> list:
+    """The notification types this user has muted for this vendor."""
+    rows = (
+        db.query(VendorNotificationMute.type)
+        .filter(
+            VendorNotificationMute.user_id == user_id,
+            VendorNotificationMute.vendor_id == vendor_id,
+        )
+        .all()
+    )
+    return [r[0] for r in rows]
+
+
+def _derive_vendor_id(db: Session, target_type: Optional[str], target_id) -> Optional[object]:
+    """
+    Best-effort: figure out which vendor a notification is 'about' from its target,
+    so the mute can be checked even when the caller didn't pass vendor_id.
+      SERVICE  -> the post's vendor (Service.add_vendor_id)
+      OFFERING -> the offering's vendor (Add_Service.vendor_id)
+      VENDOR   -> the target IS the vendor
+    """
+    if target_id is None:
+        return None
+    try:
+        if target_type == NotificationTarget.VENDOR:
+            return target_id
+        if target_type == NotificationTarget.SERVICE:
+            from app.models.service_model import Service
+            row = db.query(Service.add_vendor_id).filter(Service.id == target_id).first()
+            return row[0] if row else None
+        if target_type == NotificationTarget.OFFERING:
+            from app.models.service_model import Add_Service
+            row = db.query(Add_Service.vendor_id).filter(Add_Service.id == target_id).first()
+            return row[0] if row else None
+    except Exception:
+        return None
+    return None
+
+
 # ── Creation (called by every feature) ────────────────────────────────────────
 
 def create_notification(
     db: Session,
     payload: NotificationCreate,
     *,
+    vendor_id=None,
     commit: bool = True,
 ) -> Optional[Notification]:
     """
     Persist a notification for `payload.recipient_user_id`. Always stores the row;
-    sets show_in_feed from the user's 'show' preference for this type. Returns the
-    created Notification, or None if it was suppressed (see self-notify guard).
+    sets show_in_feed from the user's 'show' preference for this type — UNLESS the
+    recipient has muted the vendor this notification is about, in which case the row
+    is stored hidden (show_in_feed=False) and not pushed.
+
+    vendor_id: the vendor this notification is 'about'. If None, we try to derive it
+    from target_type+target_id (SERVICE/OFFERING/VENDOR). If neither yields a
+    vendor, no mute applies.
 
     Pass commit=False to enlist in the caller's transaction (the caller commits).
     """
@@ -122,6 +231,14 @@ def create_notification(
 
     pref = effective_pref(db, payload.recipient_user_id, payload.type)
 
+    # Per-vendor mute: figure out which vendor this is about, then check the mute.
+    about_vendor = vendor_id if vendor_id is not None else _derive_vendor_id(
+        db, payload.target_type, payload.target_id
+    )
+    muted = is_vendor_muted(db, payload.recipient_user_id, about_vendor, payload.type)
+
+    show = bool(pref["show"]) and not muted   # muted -> stored but hidden
+
     notif = Notification(
         recipient_user_id=payload.recipient_user_id,
         type=payload.type,
@@ -130,7 +247,7 @@ def create_notification(
         target_type=payload.target_type,
         target_id=payload.target_id,
         preview=payload.preview,
-        show_in_feed=bool(pref["show"]),
+        show_in_feed=show,
         read_at=None,
     )
     db.add(notif)
@@ -140,7 +257,8 @@ def create_notification(
         db.refresh(notif)
 
     # ── FCM hook (later) ──────────────────────────────────────────────────────
-    # if pref["push"]:
+    # push = bool(pref["push"]) and not muted
+    # if push:
     #     enqueue_push(notif)   # device-token lookup + FCM send, added in the push phase
     return notif
 
@@ -155,6 +273,7 @@ def notify(
     target_type: Optional[str] = None,
     target_id: Optional[str] = None,
     preview: Optional[str] = None,
+    vendor_id=None,
     commit: bool = True,
 ) -> Optional[Notification]:
     """Convenience wrapper so feature code reads cleanly:
@@ -174,6 +293,7 @@ def notify(
             target_id=target_id,
             preview=preview,
         ),
+        vendor_id=vendor_id,
         commit=commit,
     )
 
@@ -278,7 +398,9 @@ def mark_all_read(db: Session, user_id: UUID) -> int:
     db.commit()
     return unread_count(db, user_id)
 
-# ------------------ SPecial notifs
+
+# ── Coalesced message notification (called by chat_ws.publish_new_message) ────
+
 def notify_message(
     db: Session,
     *,
@@ -339,5 +461,148 @@ def notify_message(
     if commit:
         db.commit()
         db.refresh(notif)
-    #TODO FCM hook (later): if pref["push"]: enqueue_push(notif)
+    # TODO FCM hook (later): if pref["push"]: enqueue_push(notif)
     return notif
+
+
+# ── Recipient resolution helpers (shared by social-event wiring) ──────────────
+
+def vendor_owner_user_id(db: Session, vendor_id) -> Optional[UUID]:
+    """A vendor -> its owning user's id (Vendor.user_id)."""
+    from app.models.vendor_model import Vendor
+    v = db.query(Vendor.user_id).filter(Vendor.vendor_id == vendor_id).first()
+    return v[0] if v else None
+
+
+def service_owner_user_id(db: Session, service_id) -> Optional[UUID]:
+    """A service -> its vendor -> that vendor's owning user id (the post owner)."""
+    from app.models.service_model import Service
+    from app.models.vendor_model import Vendor
+    row = (
+        db.query(Vendor.user_id)
+        .join(Service, Service.add_vendor_id == Vendor.vendor_id)
+        .filter(Service.id == service_id)
+        .first()
+    )
+    return row[0] if row else None
+
+
+# ── New-service follower fan-out (called by the arq worker) ───────────────────
+
+def fanout_new_service(
+    db: Session,
+    *,
+    target_id,
+    vendor_id,
+    is_big: bool = False,
+    target_type: Optional[str] = None,
+    actor_name: Optional[str] = None,
+    preview: Optional[str] = None,
+) -> int:
+    """
+    Fan a new-service event out to ALL followers of `vendor_id`. Bulk + batched:
+
+      1. Load every follower of the vendor (customers and vendors).
+      2. Resolve each to its owning USER id (customer.user_id / Vendor.user_id),
+         in two batched queries — notifications are keyed by user id.
+      3. Exclude the posting vendor's own owner (no self-notify).
+      4. Batch-load notification_preferences for all recipients in ONE query to
+         decide show_in_feed per row (missing -> default show=True).
+      5. Bulk-insert the rows in a single commit.
+
+    Returns the number of notifications created. Designed to run in the worker
+    (its own DB session), not inside the create-service request.
+    """
+    from app.models.social_model import Following
+    from app.models.customer_model import customer as CustomerModel
+    from app.models.vendor_model import Vendor
+
+    ntype = NotificationType.BIG_SERVICE if is_big else NotificationType.NEW_SERVICE
+    # Posts (Service) target SERVICE; offerings (Add_Service) target OFFERING.
+    if target_type is None:
+        target_type = NotificationTarget.SERVICE if is_big else NotificationTarget.OFFERING
+
+    # 1. Followers of this vendor.
+    follows = (
+        db.query(Following.follower_customer_id, Following.follower_vendor_id)
+        .filter(Following.vendor_id == vendor_id)
+        .all()
+    )
+    if not follows:
+        return 0
+
+    customer_ids = {fc for (fc, fv) in follows if fc is not None}
+    vendor_ids = {fv for (fc, fv) in follows if fv is not None}
+
+    # 2. Resolve follower actor ids -> owning user ids (batched).
+    recipient_user_ids: set = set()
+
+    if customer_ids:
+        rows = (
+            db.query(CustomerModel.user_id)
+            .filter(CustomerModel.customer_id.in_(customer_ids))
+            .all()
+        )
+        recipient_user_ids.update(r[0] for r in rows if r[0] is not None)
+
+    if vendor_ids:
+        rows = (
+            db.query(Vendor.user_id)
+            .filter(Vendor.vendor_id.in_(vendor_ids))
+            .all()
+        )
+        recipient_user_ids.update(r[0] for r in rows if r[0] is not None)
+
+    # 3. Exclude the posting vendor's own owner.
+    poster_owner = vendor_owner_user_id(db, vendor_id)
+    if poster_owner is not None:
+        recipient_user_ids.discard(poster_owner)
+
+    if not recipient_user_ids:
+        return 0
+
+    # 4. Batch-load prefs to decide show_in_feed (and later, push) per recipient.
+    pref_rows = (
+        db.query(NotificationPreference.user_id, NotificationPreference.prefs)
+        .filter(NotificationPreference.user_id.in_(recipient_user_ids))
+        .all()
+    )
+    prefs_by_user = {uid: (p or {}) for (uid, p) in pref_rows}
+
+    # Per-vendor mute (bulk): which recipients muted THIS vendor for THIS type?
+    # Muted -> stored but hidden (show_in_feed=False), consistent with create_notification.
+    muted = muted_user_ids(db, vendor_id, ntype, recipient_user_ids)
+
+    def _show_for(uid) -> bool:
+        if uid in muted:
+            return False
+        type_pref = (prefs_by_user.get(uid) or {}).get(ntype) or {}
+        return bool(type_pref.get("show", DEFAULT_PREF["show"]))
+
+    # 5. Bulk insert.
+    target_key = str(target_id)
+    now = datetime.now(timezone.utc)
+    mappings = []
+    import uuid as _uuid
+    for uid in recipient_user_ids:
+        mappings.append({
+            "id": _uuid.uuid4(),
+            "recipient_user_id": uid,
+            "type": ntype,
+            "actor_user_id": poster_owner,
+            "actor_name": actor_name,
+            "target_type": target_type,
+            "target_id": target_key,
+            "preview": preview or ("posted a new service"),
+            "show_in_feed": _show_for(uid),
+            "read_at": None,
+            "created_at": now,
+            "updated_at": now,
+        })
+
+    db.bulk_insert_mappings(Notification, mappings)
+    db.commit()
+
+    # ── FCM hook (later) ──────────────────────────────────────────────────────
+    # For recipients whose prefs_by_user[uid][ntype].push is True, enqueue pushes.
+    return len(mappings)

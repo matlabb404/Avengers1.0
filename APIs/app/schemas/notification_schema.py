@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 
 # ── Per-notification output ───────────────────────────────────────────────────
+
 class NotificationOut(BaseModel):
     id: UUID
     type: str                          # NotificationType.*
@@ -36,6 +37,7 @@ class MarkReadOut(BaseModel):
 
 
 # ── Preferences ───────────────────────────────────────────────────────────────
+
 class TypePref(BaseModel):
     push: bool = True
     show: bool = True
@@ -55,6 +57,7 @@ class PreferencesUpdate(BaseModel):
 
 # ── Internal create payload (used by other modules via create_notification) ───
 # Not an HTTP body — features build this when emitting an event.
+
 class NotificationCreate(BaseModel):
     recipient_user_id: UUID
     type: str
@@ -63,3 +66,18 @@ class NotificationCreate(BaseModel):
     target_type: Optional[str] = None
     target_id: Optional[str] = None
     preview: Optional[str] = None
+
+
+# ── Per-vendor mute ───────────────────────────────────────────────────────────
+
+class VendorMuteOut(BaseModel):
+    """The types this user has muted for a given vendor."""
+    vendor_id: UUID
+    muted_types: List[str]
+
+
+class VendorMuteUpdate(BaseModel):
+    """Set the mute state for one type on one vendor.
+       e.g. {"type": "BIG_SERVICE", "muted": true}"""
+    type: str
+    muted: bool

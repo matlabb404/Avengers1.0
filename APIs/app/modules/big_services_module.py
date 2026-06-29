@@ -134,7 +134,29 @@ def add_service(db: Session, owner_id, big_service: ServiceUpdate, add_vendor_id
     # price_history is guaranteed set before posting, so the joins resolve.
     row = _base_query(db).filter(service_model.Service.id == new_service.id).first()
     service, vendor, price_history_row, add_service_row = row
-    return _build_full_response(db, service, vendor, price_history_row, add_service_row)
+    response = _build_full_response(db, service, vendor, price_history_row, add_service_row)
+
+    # Fan out a NEW_SERVICE / BIG_SERVICE notification to the vendor's followers
+    # in the background (arq). Never let this fail the post.
+    try:
+        from app.services import queue
+        vendor_name = (
+            vendor.business_name
+            or " ".join(x for x in (vendor.first_name, vendor.last_name) if x)
+            or "A vendor you follow"
+        )
+        # A Service IS a post -> always BIG_SERVICE.
+        queue.enqueue_new_service_fanout_sync(
+            service_id=new_service.id,
+            vendor_id=add_vendor_id,
+            is_big=True,
+            actor_name=vendor_name,
+            preview=(new_service.description or "posted a new service")[:120],
+        )
+    except Exception:
+        pass
+
+    return response
 
 
 # ── Reads ─────────────────────────────────────────────────────────────────────
