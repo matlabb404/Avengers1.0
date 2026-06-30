@@ -118,26 +118,6 @@ def add_booking(db: Session, book: booking_schema.BookingCreate, user_id_request
             )
 
         db.commit()
-        db.add(new_booking)
-        db.flush()
-
-        # Notify the vendor owner that their service was booked (same transaction).
-        owner_id = nm.service_owner_user_id(db, book.service_id)
-        if owner_id is not None:
-            nm.notify(
-                db,
-                recipient_user_id=owner_id,
-                type=NotificationType.BOOKING_NEW,
-                actor_user_id=user_id_request,
-                actor_name=None,  # optional: resolve the customer's name if you have it
-                target_type=NotificationTarget.BOOKING,
-                target_id=str(new_booking.booking_id),
-                preview="booked your service",
-                vendor_id=service.add_vendor_id,   # for per-vendor mute checks
-                commit=False,
-            )
-
-        db.commit()
         db.refresh(new_booking)
 
         return new_booking

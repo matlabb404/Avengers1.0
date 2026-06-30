@@ -60,14 +60,14 @@ class Settings:
 
     # ── Push Notifications ─────────────────────────────────────────
     # ── FCM (Android) ──
-    FIREBASE_CREDENTIALS_PATH: str          # path to service-account JSON
+    FIREBASE_CREDENTIALS_PATH: str = os.getenv("FIREBASE_CREDENTIALS_PATH", "")             # path to service-account JSON
 
     # ── APNs (iOS) ──
-    APNS_AUTH_KEY_PATH: str                 # path to the .p8 auth key
-    APNS_KEY_ID: str                        # the key id (kid)
-    APNS_TEAM_ID: str                       # Apple Team ID (iss)
-    APNS_BUNDLE_ID: str                     # app bundle id (apns-topic)
-    APNS_USE_SANDBOX: bool = False          # True for dev builds, False for prod
+    APNS_AUTH_KEY_PATH: str = os.getenv("APNS_AUTH_KEY_PATH", "")                           # path to the .p8 auth key
+    APNS_KEY_ID: str = os.getenv("APNS_KEY_ID", "")                                         # the key id (kid)
+    APNS_TEAM_ID: str = os.getenv("APNS_TEAM_ID", "")                                       # Apple Team ID (iss)
+    APNS_BUNDLE_ID: str = os.getenv("APNS_BUNDLE_ID", "")                                   # app bundle id (apns-topic)
+    APNS_USE_SANDBOX: bool = os.getenv("APNS_USE_SANDBOX", "false").lower() == "true"       # True for dev builds, False for prod
     
     def validate(self):
         """Fail fast at startup if critical secrets are missing."""

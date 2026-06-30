@@ -7,9 +7,10 @@ chat_router)
 from app.config.db.postgresql import Base, engine
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
-import app.handlers.notification_handlers  # noqa: F401 — side-effect import
+# import app.handlers.notification_handlers  # noqa: F401 — side-effect import
 import app.events.notification_events  # registers booking notification handlers
-import app.models.device_token_model
+import app.models.notification_model   # notifications / preferences / vendor_mutes tables
+import app.models.device_token_model   # device_tokens table
 
 # flush the db on every run 
 # Base.metadata.drop_all(bind=engine)
