@@ -24,4 +24,6 @@ botocore
 arq 
 blurhash-python
 websockets
+pyjwt 
+cryptography 
 # subprocess

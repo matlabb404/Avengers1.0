@@ -67,3 +67,30 @@ def enqueue_new_service_fanout_sync(target_id, vendor_id, is_big: bool,
         loop.create_task(_go())
     except Exception as e:
         logger.warning("new-service fanout enqueue failed: %r", e)
+        
+
+def enqueue_push_sync(recipient_user_id: str, ntype: str,
+                      actor_name: str | None, preview: str | None,
+                      target_type: str | None, target_id: str | None) -> None:
+    """Fire-and-forget push enqueue from SYNC code (notification_module)."""
+    import asyncio
+    from arq import create_pool
+
+    async def _go():
+        pool = await create_pool(redis_settings())
+        try:
+            await pool.enqueue_job(
+                "deliver_push_task",
+                recipient_user_id, ntype, actor_name, preview,
+                target_type, target_id,
+            )
+        finally:
+            await pool.close()
+
+    try:
+        asyncio.run(_go())
+    except RuntimeError:
+        loop = asyncio.get_event_loop()
+        loop.create_task(_go())
+    except Exception as e:
+        logger.warning("push enqueue failed: %r", e)

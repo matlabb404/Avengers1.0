@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 import app.handlers.notification_handlers  # noqa: F401 — side-effect import
 import app.events.notification_events  # registers booking notification handlers
+import app.models.device_token_model
 
 # flush the db on every run 
 # Base.metadata.drop_all(bind=engine)

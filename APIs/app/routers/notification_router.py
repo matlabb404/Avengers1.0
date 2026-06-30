@@ -12,21 +12,30 @@ Auth: same as the rest of the app — get_current_user returns the User (with .i
 """
 from typing import Optional
 from uuid import UUID
-
+ 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-
+ 
 from app.config.db.postgresql import SessionLocal
 from app.modules.account_module import get_current_user
 from app.models.account_model import User
 from app.modules import notification_module as nm
+from app.modules import device_token_module as dt
+from app.schemas.device_token_schema import (
+    RegisterTokenRequest,
+    RegisterTokenResponse,
+    UnregisterTokenRequest,
+)
 from app.schemas.notification_schema import (
     NotificationPage,
     UnreadCountOut,
     MarkReadOut,
     PreferencesOut,
     PreferencesUpdate,
+    VendorMuteOut,
+    VendorMuteUpdate,
 )
+from uuid import UUID as _UUID
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
@@ -92,3 +101,55 @@ def update_preferences(
 ):
     updated = nm.update_preferences(db, current_user.id, body.prefs)
     return PreferencesOut(prefs=updated)
+
+# ── Per-vendor mute (from the vendor profile options button) ──────────────────
+
+@router.get("/vendor/{vendor_id}/mutes", response_model=VendorMuteOut)
+def get_vendor_mutes(
+    vendor_id: _UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Which notification types this user has muted for this vendor."""
+    types = nm.list_vendor_mutes(db, current_user.id, vendor_id)
+    return VendorMuteOut(vendor_id=vendor_id, muted_types=types)
+
+
+@router.put("/vendor/{vendor_id}/mute", response_model=VendorMuteOut)
+def set_vendor_mute(
+    vendor_id: _UUID,
+    body: VendorMuteUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mute/unmute one notification type for this vendor (idempotent)."""
+    nm.set_vendor_mute(db, current_user.id, vendor_id, body.type, body.muted)
+    types = nm.list_vendor_mutes(db, current_user.id, vendor_id)
+    return VendorMuteOut(vendor_id=vendor_id, muted_types=types)
+
+
+# ── Push device tokens (register on login / token refresh) ────────────────────
+
+@router.post("/devices/register", response_model=RegisterTokenResponse)
+def register_device(
+    body: RegisterTokenRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Register (or refresh) this device's push token. Idempotent."""
+    try:
+        dt.register_token(db, current_user.id, body.token, body.platform)
+    except ValueError:
+        return RegisterTokenResponse(ok=False)
+    return RegisterTokenResponse(ok=True)
+
+
+@router.post("/devices/unregister", response_model=RegisterTokenResponse)
+def unregister_device(
+    body: UnregisterTokenRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Remove this device's push token (logout)."""
+    dt.unregister_token(db, current_user.id, body.token)
+    return RegisterTokenResponse(ok=True)

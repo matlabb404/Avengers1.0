@@ -36,6 +36,22 @@ from app.schemas.notification_schema import (
 # Default when a user hasn't set a preference for a type.
 DEFAULT_PREF = {"push": True, "show": True}
 
+def _enqueue_push(*, recipient_user_id, ntype, actor_name, preview,
+                  target_type, target_id) -> None:
+    """
+    Fire-and-forget: enqueue an arq job to deliver this notification as a push to
+    the recipient's devices. Never raises into the caller — a push enqueue failure
+    must not break notification creation.
+    """
+    try:
+        from app.services import queue
+        queue.enqueue_push_sync(
+            str(recipient_user_id), ntype, actor_name, preview,
+            target_type, target_id,
+        )
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning("push enqueue failed", exc_info=True)
 
 # ── Preferences ───────────────────────────────────────────────────────────────
 
@@ -606,3 +622,37 @@ def fanout_new_service(
     # ── FCM hook (later) ──────────────────────────────────────────────────────
     # For recipients whose prefs_by_user[uid][ntype].push is True, enqueue pushes.
     return len(mappings)
+
+# ── Booking party resolution ──────────────────────────────────────────────────
+ 
+def booking_parties(db: Session, booking_id) -> dict:
+    """
+    Resolve both parties + the vendor for a booking, for notification wiring:
+      {
+        "customer_user_id": <Booking.user_id>,
+        "vendor_id":        <the service's vendor>,
+        "vendor_user_id":   <Vendor.user_id, the owner>,
+        "service_id":       <Booking.service_id>,
+      }
+    Returns {} if the booking can't be resolved.
+    """
+    from app.models.booking_model import Booking
+    from app.models.service_model import Service
+    from app.models.vendor_model import Vendor
+ 
+    row = (
+        db.query(Booking.user_id, Booking.service_id, Vendor.vendor_id, Vendor.user_id)
+        .join(Service, Booking.service_id == Service.id)
+        .join(Vendor, Service.add_vendor_id == Vendor.vendor_id)
+        .filter(Booking.booking_id == booking_id)
+        .first()
+    )
+    if not row:
+        return {}
+    customer_user_id, service_id, vendor_id, vendor_user_id = row
+    return {
+        "customer_user_id": customer_user_id,
+        "vendor_id": vendor_id,
+        "vendor_user_id": vendor_user_id,
+        "service_id": service_id,
+    }

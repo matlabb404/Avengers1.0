@@ -228,12 +228,40 @@ def _fanout_new_service_sync(target_id, vendor_id, is_big, target_type, actor_na
     finally:
         db.close()
 
+async def deliver_push_task(ctx, recipient_user_id: str, ntype: str,
+                            actor_name: str | None, preview: str | None,
+                            target_type: str | None, target_id: str | None):
+    await asyncio.to_thread(
+        _deliver_push_sync, recipient_user_id, ntype, actor_name, preview,
+        target_type, target_id,
+    )
+
+
+def _deliver_push_sync(recipient_user_id, ntype, actor_name, preview,
+                       target_type, target_id):
+    from uuid import UUID
+    from app.modules import push_module
+    from app.models import notification_model, device_token_model  # register models
+    db = SessionLocal()
+    try:
+        push_module.push_to_user(
+            db,
+            recipient_user_id=UUID(recipient_user_id),
+            ntype=ntype,
+            actor_name=actor_name,
+            preview=preview,
+            target_type=target_type,
+            target_id=target_id,
+        )
+    finally:
+        db.close()
+
 # ─────────────────────────────────────────────────────────────
 # arq worker settings
 # ─────────────────────────────────────────────────────────────
 
 class WorkerSettings:
-    functions = [process_media, fanout_new_service_task]
+    functions = [process_media, fanout_new_service_task, deliver_push_task]
     cron_jobs = [cron(reap_orphans_job, minute=set(range(0, 60, 10)))]  # every 10 min
     redis_settings = queue.redis_settings()
     max_jobs = 10
