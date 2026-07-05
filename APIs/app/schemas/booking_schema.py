@@ -3,6 +3,7 @@ from uuid import UUID
 import calendar
 import datetime
 from enum import Enum
+from app.schemas.big_services_schema import FullServiceResponse
 
 datess = {}
 dates_to_use = []
@@ -37,13 +38,27 @@ BookingDates = Enum('BookingDates', {dates_to_use[i]: dates_to_use[i] for i in r
 
 
 class BookingRespone(BaseModel):
-    business_name: str 
-    service_name : str 
-    price : int
-    time_date : str
-    notes: str 
+    booking_id: str
+    service_id: UUID
+    user_id: UUID
+    business_name: str
+    service_name: str
+    price_minor_at_booking: int
+    currency_at_booking: str
+    time_date: datetime.datetime      # was booking_time
+    notes: str
+    status: str | None = None
+    payment_status: str | None = None
 
 class BookingCreate(BaseModel):
-    service_id: str
+    service_id: UUID
     notes: str | None = None
     booking_time: datetime.datetime
+
+class BookingDetailResponse(BaseModel):
+    booking: BookingRespone          # your existing booking schema
+    service: FullServiceResponse
+    payment_reference: str | None = None
+
+    class Config:
+        from_attributes = True

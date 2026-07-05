@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from app.models import booking_model, vendor_model
 from sqlalchemy.orm import Session
 from app.schemas import booking_schema
-from app.modules import notification_module as nm
+from app.modules import notification_module as nm, big_services_module as service_mdl
 from app.models.booking_model import Booking, BookingStatus
 from app.models.service_model import Service, Add_Service, price_history
 from app.models.vendor_model import Vendor
@@ -13,6 +13,8 @@ from datetime import timezone, datetime, date, timedelta
 from sqlalchemy.exc import IntegrityError
 from typing import List
 from app.models.payment_model import PaymentStatus
+from app.models.payment_model import Payment                 # adjust import path if different
+
 
 def add_booking(db: Session, book: booking_schema.BookingCreate, user_id_request: str):
     try:
@@ -125,6 +127,58 @@ def add_booking(db: Session, book: booking_schema.BookingCreate, user_id_request
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=400, detail="Duplicate booking")
+
+def get_booking_detail(db: Session, booking_id_request: str, user_id_request: str):
+    """
+    One booking (scoped to the requesting user) as a rich detail:
+      { booking, service (FullServiceResponse), payment_reference }
+    """
+    booking = (
+        db.query(Booking)
+        .filter(
+            Booking.booking_id == booking_id_request,
+            Booking.user_id == user_id_request,
+        )
+        .first()
+    )
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    # Full service — reuses the same builder the feed/post endpoints use.
+    service_full = service_mdl.get_service(db, booking.service_id)
+
+    # Denormalized display names come from the already-fetched service.
+    business_name = service_full.vendor.business_name
+    service_name = service_full.add_service.service_name
+
+    # Most recent payment reference for this booking, if any.
+    payment_ref = (
+        db.query(Payment.provider_reference)
+        .filter(Payment.booking_id == booking.booking_id)
+        .order_by(Payment.created_at.desc())
+        .first()
+    )
+    reference = payment_ref[0] if payment_ref else None
+
+    booking_out = {
+        "booking_id": str(booking.booking_id),
+        "service_id": booking.service_id,
+        "user_id": booking.user_id,
+        "business_name": business_name,
+        "service_name": service_name,
+        "price_minor_at_booking": booking.price_minor_at_booking,
+        "currency_at_booking": booking.currency_at_booking.value,
+        "booking_time": booking.time_date,
+        "notes": booking.notes or "",
+        "status": booking.status.value if booking.status else None,
+        "payment_status": booking.payment_status.value if booking.payment_status else None,
+    }
+
+    return {
+        "booking": booking_out,
+        "service": service_full,
+        "payment_reference": reference,
+    }
 
 def get_all_booking_by_user(db: Session, user_id: int):
     results = (
