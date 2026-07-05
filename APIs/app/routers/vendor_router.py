@@ -37,7 +37,7 @@ async def get_vendor(db: Session = Depends(get_db), current_user: User = Depends
 
 @router.get("/vendor_id_by_user/{user_id}", tags=["Vendor"])
 async def vendor_id_by_user(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return vendor_mdl.get_current_vendor(db=db, user_id=user_id)
+    return vendor_mdl.get_current_vendor(db=db, user_id=user_id).vendor_id
 
 @router.post("/Vendor_Details", tags=["Vendor"])
 async def vendor_details( vendor_detials_request: vendor_Schema.VendorDetailsCreateBase, db:Session=Depends(get_db), current_user : User = Depends(get_current_user)):
