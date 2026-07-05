@@ -12,8 +12,6 @@ from app.models.vendor_model import Vendor
 from uuid import UUID
 from fastapi import HTTPException
 
-
-
 def add_vendor(db:Session, vendor:vendor_Schema.VendorCreateBase, vendor_emaail : str, user_id_ :str ):
     db_vendor = vendor_model.Vendor(**vendor.dict(), vendor_email = vendor_emaail, user_id = user_id_)
     db.add(db_vendor)
