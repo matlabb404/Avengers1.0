@@ -181,15 +181,15 @@ async def publish_new_message(db, conversation_id: UUID, message: dict) -> None:
     }
     redis = await _get_redis()
     await redis.publish(recipient_identity, json.dumps(frame))
-
-    # ── Notification (coalesced, presence-gated) ──────────────────────────────
-    # If the recipient is actively VIEWING this conversation, the live socket
-    # already delivered it -> skip the notification. Otherwise upsert ONE unread
-    # MESSAGE notification for this conversation.
-    if recipient_user_id is not None and not manager.is_viewing(recipient_key, conversation_id):
+    
+    # ── Notification (coalesced; push suppressed while actively viewing) ───────
+    # ALWAYS create/coalesce the in-app row. Suppress only the PUSH if the
+    # recipient is currently viewing this conversation (the live socket already
+    # delivered the message to their open screen).
+    if recipient_user_id is not None:
         try:
             from app.modules import notification_module as nm
-            sender_name = message.get("sender_name") or None  # if MessageOut carries it
+            sender_name = message.get("sender_name") or None
             body_preview = message.get("body")
             kind = str(message.get("kind") or "TEXT")
             if not body_preview:
@@ -197,6 +197,7 @@ async def publish_new_message(db, conversation_id: UUID, message: dict) -> None:
                     "Shared a post" if kind.endswith("POST_SHARE") else "New message"
                 )
             actor_uid = _message_sender_user_id(db, convo, sender_role)
+            viewing = manager.is_viewing(recipient_key, conversation_id)
             nm.notify_message(
                 db,
                 recipient_user_id=recipient_user_id,
@@ -204,11 +205,11 @@ async def publish_new_message(db, conversation_id: UUID, message: dict) -> None:
                 actor_user_id=actor_uid,
                 actor_name=sender_name,
                 preview=body_preview,
+                suppress_push=viewing,   # in-app row yes, push no, while viewing
                 commit=True,
             )
         except Exception as e:
             print(f"[chat_ws] notify_message failed: {e!r}", flush=True)
-
 
 def _vendor_owner_user_id(db, vendor_id):
     """Map a vendor -> the owning user's id (Vendor.user_id)."""

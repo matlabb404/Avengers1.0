@@ -434,19 +434,21 @@ def notify_message(
     actor_user_id: Optional[UUID] = None,
     actor_name: Optional[str] = None,
     preview: Optional[str] = None,
+    suppress_push: bool = False,   # True when recipient is actively viewing this convo
     commit: bool = True,
 ) -> Optional[Notification]:
     """
-    Coalesced message notification: at most ONE unread MESSAGE notification per
-    (recipient, conversation). If an unread one exists, update its preview/actor
-    (updated_at auto-bumps -> floats to top); else create a new one.
-
-    Coalescing key: type=MESSAGE, target_id=conversation_id, read_at IS NULL.
+    Coalesced message notification. Always stores/coalesces ONE unread MESSAGE
+    notification per (recipient, conversation). Pushes on EVERY message, EXCEPT
+    when suppress_push is True (recipient is actively viewing the conversation) —
+    then it's in-app only, no push.
     """
     if actor_user_id is not None and actor_user_id == recipient_user_id:
         return None
 
     convo_key = str(conversation_id)
+    pref = effective_pref(db, recipient_user_id, NotificationType.MESSAGE)
+    should_push = bool(pref["push"]) and not suppress_push
 
     existing = (
         db.query(Notification)
@@ -464,13 +466,20 @@ def notify_message(
         existing.actor_user_id = actor_user_id
         existing.actor_name = actor_name
         existing.preview = preview
-        # updated_at bumps automatically via TimestampMixin.onupdate.
         if commit:
             db.commit()
             db.refresh(existing)
+        if should_push:
+            _enqueue_push(
+                recipient_user_id=recipient_user_id,
+                ntype=NotificationType.MESSAGE,
+                actor_name=actor_name,
+                preview=preview,
+                target_type=NotificationTarget.CONVERSATION,
+                target_id=convo_key,
+            )
         return existing
 
-    pref = effective_pref(db, recipient_user_id, NotificationType.MESSAGE)
     notif = Notification(
         recipient_user_id=recipient_user_id,
         type=NotificationType.MESSAGE,
@@ -486,10 +495,7 @@ def notify_message(
     if commit:
         db.commit()
         db.refresh(notif)
-    # FCM hook (later): if pref["push"]: enqueue_push(notif)
-        # ── Push (background, fire-and-forget) ────────────────────────────────────
-    push = bool(pref["push"])
-    if push:
+    if should_push:
         _enqueue_push(
             recipient_user_id=recipient_user_id,
             ntype=NotificationType.MESSAGE,
@@ -499,7 +505,6 @@ def notify_message(
             target_id=convo_key,
         )
     return notif
-
 
 # ── Recipient resolution helpers (shared by social-event wiring) ──────────────
 
