@@ -438,10 +438,10 @@ def notify_message(
     commit: bool = True,
 ) -> Optional[Notification]:
     """
-    Coalesced message notification. Always stores/coalesces ONE unread MESSAGE
-    notification per (recipient, conversation). Pushes on EVERY message, EXCEPT
-    when suppress_push is True (recipient is actively viewing the conversation) —
-    then it's in-app only, no push.
+    Coalesced message notification: at most ONE unread MESSAGE notification per
+    (recipient, conversation). Always stores/coalesces the in-app row. Pushes on
+    EVERY message, EXCEPT when suppress_push is True (recipient is actively viewing
+    the conversation) — then it's in-app only, no push.
     """
     if actor_user_id is not None and actor_user_id == recipient_user_id:
         return None
@@ -466,6 +466,7 @@ def notify_message(
         existing.actor_user_id = actor_user_id
         existing.actor_name = actor_name
         existing.preview = preview
+        # updated_at bumps automatically via TimestampMixin.onupdate.
         if commit:
             db.commit()
             db.refresh(existing)
@@ -505,6 +506,7 @@ def notify_message(
             target_id=convo_key,
         )
     return notif
+
 
 # ── Recipient resolution helpers (shared by social-event wiring) ──────────────
 

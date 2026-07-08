@@ -59,7 +59,12 @@ class ConnectionManager:
                 conns.discard(ws)
                 if not conns:
                     self._sockets.pop(identity_key, None)
-                    self._focus.pop(identity_key, None)
+                    self._focus.pop(identity_key, None)   # legacy in-memory, harmless to keep
+        # Clear Redis focus for this identity on clean disconnect (best-effort).
+        try:
+            await clear_focus_redis(identity_key, None)
+        except Exception:
+            pass
 
     async def send_local(self, identity_key: str, payload: str) -> None:
         """Deliver to every local socket for this identity. Prunes dead sockets."""
@@ -103,6 +108,51 @@ async def _get_redis() -> aioredis.Redis:
         _redis = aioredis.from_url(REDIS_URL, encoding="utf-8", decode_responses=True)
     return _redis
 
+# ── Presence (focus) in Redis — multi-worker safe ─────────────────────────────
+# Which conversation an identity is actively VIEWING. Stored in Redis (not the
+# per-process manager._focus) so any uvicorn worker can read it. A TTL makes it
+# self-healing: a half-dead socket that never sends BLUR expires on its own.
+_FOCUS_PREFIX = "presence:focus:"      # presence:focus:{identity_key} -> conversation_id
+_FOCUS_TTL_SECONDS = 120               # ~3x the client PING interval; adjust to match
+
+def _focus_key(identity_key: str) -> str:
+    return f"{_FOCUS_PREFIX}{identity_key}"
+
+
+async def set_focus_redis(identity_key: str, conversation_id: str) -> None:
+    """Mark this identity as viewing a conversation, with a self-expiring TTL."""
+    redis = await _get_redis()
+    await redis.set(_focus_key(identity_key), str(conversation_id), ex=_FOCUS_TTL_SECONDS)
+
+
+async def clear_focus_redis(identity_key: str, conversation_id: str | None = None) -> None:
+    """
+    Clear this identity's focus. If conversation_id is given, only clear when it
+    matches the stored value (avoids a stale BLUR wiping a newer FOCUS).
+    """
+    redis = await _get_redis()
+    if conversation_id is None:
+        await redis.delete(_focus_key(identity_key))
+        return
+    stored = await redis.get(_focus_key(identity_key))
+    if stored is not None and str(stored) == str(conversation_id):
+        await redis.delete(_focus_key(identity_key))
+
+
+async def refresh_focus_ttl(identity_key: str) -> None:
+    """Bump the TTL on the current focus key (called on PING keepalive) so active
+       viewing never lapses. No-op if the identity isn't currently focused."""
+    redis = await _get_redis()
+    key = _focus_key(identity_key)
+    # EXPIRE only affects an existing key; if there's no focus, this is a no-op.
+    await redis.expire(key, _FOCUS_TTL_SECONDS)
+
+
+async def is_viewing_redis(identity_key: str, conversation_id) -> bool:
+    """True if this identity currently has the given conversation focused (per Redis)."""
+    redis = await _get_redis()
+    stored = await redis.get(_focus_key(identity_key))
+    return stored is not None and str(stored) == str(conversation_id)
 
 async def start_pubsub() -> None:
     """Subscribe to the chat channel pattern and fan incoming events out to local
@@ -183,9 +233,9 @@ async def publish_new_message(db, conversation_id: UUID, message: dict) -> None:
     await redis.publish(recipient_identity, json.dumps(frame))
     
     # ── Notification (coalesced; push suppressed while actively viewing) ───────
+   # ── Notification (coalesced; push suppressed while actively viewing) ───────
     # ALWAYS create/coalesce the in-app row. Suppress only the PUSH if the
-    # recipient is currently viewing this conversation (the live socket already
-    # delivered the message to their open screen).
+    # recipient is currently viewing this conversation (Redis presence).
     if recipient_user_id is not None:
         try:
             from app.modules import notification_module as nm
@@ -197,7 +247,7 @@ async def publish_new_message(db, conversation_id: UUID, message: dict) -> None:
                     "Shared a post" if kind.endswith("POST_SHARE") else "New message"
                 )
             actor_uid = _message_sender_user_id(db, convo, sender_role)
-            viewing = manager.is_viewing(recipient_key, conversation_id)
+            viewing = await is_viewing_redis(recipient_key, conversation_id)
             nm.notify_message(
                 db,
                 recipient_user_id=recipient_user_id,
@@ -211,6 +261,7 @@ async def publish_new_message(db, conversation_id: UUID, message: dict) -> None:
         except Exception as e:
             print(f"[chat_ws] notify_message failed: {e!r}", flush=True)
 
+            
 def _vendor_owner_user_id(db, vendor_id):
     """Map a vendor -> the owning user's id (Vendor.user_id)."""
     try:
@@ -306,23 +357,20 @@ async def _handle_inbound(ws: WebSocket, identity_key: str, raw: str) -> None:
     t = (frame.get("type") or "").upper()
     if t == "PING":
         await ws.send_text(json.dumps({"type": "PONG"}))
+        # Keep focus alive while the socket is actively pinging.
+        await refresh_focus_ttl(identity_key)
     elif t == "TYPING":
-        # Relay a typing indicator to the other side, if provided.
         convo_id = frame.get("conversation_id")
         if convo_id:
             await _relay_typing(identity_key, convo_id, frame.get("typing_role"))
     elif t == "FOCUS":
-        # Client is now VIEWING this conversation -> suppress message notifications
-        # for it (live socket delivers instead). Sent on convo screen open/resume.
-        manager.set_focus(identity_key, frame.get("conversation_id"))
-    elif t == "BLUR":
-        # Client left the conversation -> resume notifications. Sent on close/pause.
-        # Clear only if it matches what we have (avoid races clearing a newer focus).
         cid = frame.get("conversation_id")
-        if cid is None or manager.is_viewing(identity_key, cid):
-            manager.set_focus(identity_key, None)
-    # SEND is intentionally not handled here — clients POST to the REST endpoint
-    # so the message is persisted first, then pushed back over the socket.
+        if cid:
+            await set_focus_redis(identity_key, cid)
+    elif t == "BLUR":
+        cid = frame.get("conversation_id")
+        await clear_focus_redis(identity_key, cid)   # cid=None clears unconditionally
+    # SEND is intentionally not handled here — clients POST to the REST endpoint.
 
 
 async def _relay_typing(sender_identity: str, conversation_id: str, typing_role) -> None:
