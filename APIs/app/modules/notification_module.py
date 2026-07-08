@@ -272,10 +272,17 @@ def create_notification(
         db.commit()
         db.refresh(notif)
 
-    # ── FCM hook (later) ──────────────────────────────────────────────────────
-    # push = bool(pref["push"]) and not muted
-    # if push:
-    #     enqueue_push(notif)   # device-token lookup + FCM send, added in the push phase
+    # ── Push (background, fire-and-forget) ────────────────────────────────────
+    push = bool(pref["push"]) and not muted
+    if push:
+        _enqueue_push(
+            recipient_user_id=payload.recipient_user_id,
+            ntype=payload.type,
+            actor_name=payload.actor_name,
+            preview=payload.preview,
+            target_type=payload.target_type,
+            target_id=payload.target_id,
+        )
     return notif
 
 
@@ -477,7 +484,18 @@ def notify_message(
     if commit:
         db.commit()
         db.refresh(notif)
-    # TODO FCM hook (later): if pref["push"]: enqueue_push(notif)
+    # FCM hook (later): if pref["push"]: enqueue_push(notif)
+        # ── Push (background, fire-and-forget) ────────────────────────────────────
+    push = bool(pref["push"])
+    if push:
+        _enqueue_push(
+            recipient_user_id=recipient_user_id,
+            ntype=NotificationType.MESSAGE,
+            actor_name=actor_name,
+            preview=preview,
+            target_type=NotificationTarget.CONVERSATION,
+            target_id=convo_key,
+        )
     return notif
 
 
@@ -619,8 +637,25 @@ def fanout_new_service(
     db.bulk_insert_mappings(Notification, mappings)
     db.commit()
 
-    # ── FCM hook (later) ──────────────────────────────────────────────────────
-    # For recipients whose prefs_by_user[uid][ntype].push is True, enqueue pushes.
+    # ── Push fan-out (background) ─────────────────────────────────────────────
+    # Enqueue a push per recipient whose push pref is on AND who isn't muted.
+    def _push_for(uid) -> bool:
+        if uid in muted:
+            return False
+        type_pref = (prefs_by_user.get(uid) or {}).get(ntype) or {}
+        return bool(type_pref.get("push", DEFAULT_PREF["push"]))
+
+    for uid in recipient_user_ids:
+        if _push_for(uid):
+            _enqueue_push(
+                recipient_user_id=uid,
+                ntype=ntype,
+                actor_name=actor_name,
+                preview=preview or "posted a new service",
+                target_type=target_type,
+                target_id=target_key,
+            )
+
     return len(mappings)
 
 # ── Booking party resolution ──────────────────────────────────────────────────
