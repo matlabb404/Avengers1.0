@@ -43,6 +43,9 @@ def _enqueue_push(*, recipient_user_id, ntype, actor_name, preview,
     the recipient's devices. Never raises into the caller — a push enqueue failure
     must not break notification creation.
     """
+    import logging
+    log = logging.getLogger(__name__)
+    log.warning("PUSH_ENQUEUE_ATTEMPT user=%s type=%s", recipient_user_id, ntype)
     try:
         from app.services import queue
         queue.enqueue_push_sync(
@@ -50,7 +53,6 @@ def _enqueue_push(*, recipient_user_id, ntype, actor_name, preview,
             target_type, target_id,
         )
     except Exception:
-        import logging
         logging.getLogger(__name__).warning("push enqueue failed", exc_info=True)
 
 # ── Preferences ───────────────────────────────────────────────────────────────
