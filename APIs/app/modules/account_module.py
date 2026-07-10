@@ -108,8 +108,18 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
     return user
 
-def login_for_access_token(db: Session, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+def login_for_access_token(db: Session, form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+                           user_agent: str | None = None, created_ip: str | None = None):
     user = user_login(form_data.username, form_data.password, db)
     access_token_expires = timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(user.email, expires_delta=access_token_expires)
-    return {"access_token": access_token, "token_type": "bearer"}
+
+    from app.modules import refresh_token_module as rt
+    refresh_token = rt.create_refresh_token(
+        db, user.id, user_agent=user_agent, created_ip=created_ip,
+    )
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }

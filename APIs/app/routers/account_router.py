@@ -1,17 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import timedelta
+
+from app.config.settings import get_settings
+from fastapi import APIRouter, Depends, Request, HTTPException, status
 from typing import Annotated
 from app.models import customer_model, vendor_model
 import app.modules.account_module as register_module
-from app.modules.account_module import get_current_user
+from app.modules.account_module import create_access_token, get_current_user
 from app.config.db.postgresql import SessionLocal
 from app.schemas import account_schema
 from fastapi.security import OAuth2PasswordBearer,OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.models.account_model import User
 from pydantic import EmailStr, BaseModel
+from app.modules import refresh_token_module as rt
 
-
-
+settings = get_settings()
 router = APIRouter(prefix="/Account")
 
 
@@ -52,9 +55,39 @@ async def reset_password(update_passworda: account_schema.UpdatePassword, db:Ses
     return responce
 
 @router.post("/token", tags=["Account"], response_model=account_schema.Token)
-async def get_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db:Session= Depends(get_db)):
-    token = register_module.login_for_access_token(form_data=form_data, db=db)
+async def get_token(request: Request, form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db:Session= Depends(get_db)):
+    token = register_module.login_for_access_token(
+        db, form_data,
+        user_agent=request.headers.get("user-agent"),
+        created_ip=request.client.host if request.client else None,
+    )
     return token
+
+@router.post("/refresh")
+def refresh(
+    request: Request,
+    body: account_schema.RefreshRequest,
+    db: Session = Depends(get_db),
+):
+    new_refresh, email = rt.verify_and_rotate(
+        db, body.refresh_token,
+        user_agent=request.headers.get("user-agent"),
+        created_ip=request.client.host if request.client else None,
+    )
+    if new_refresh is None or email is None:
+        # Not found / expired / reuse-detected -> client must re-login.
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
+    access_token = create_access_token(
+        email, expires_delta=timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    return {
+        "access_token": access_token,
+        "refresh_token": new_refresh,
+        "token_type": "bearer",
+    }
 
 @router.get("/user/exists", tags=["Account"])
 async def check_customer_exists( db: Session = Depends(get_db), current_user : User = Depends(get_current_user)):
@@ -79,3 +112,9 @@ async def get_user_wtoken(token:str):
     if ( user == {"detail": "User not found"}):
         return False
     return True
+
+@router.post("/logout")
+def logout(body: account_schema.LogoutRequest, db: Session = Depends(get_db)):
+    # Idempotent: revoking an unknown/already-revoked token is a no-op success.
+    rt.revoke_token(db, body.refresh_token)
+    return {"detail": "logged out"}
