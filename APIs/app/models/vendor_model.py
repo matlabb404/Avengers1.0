@@ -91,7 +91,7 @@ class Vendor_Details(TimestampMixin, Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     vendor_id_details = Column(UUID(as_uuid=True), ForeignKey('Vendor.vendor_id'))
     description = Column(String)
-    picture_url = Column(String)
+    picture_asset_id = Column(UUID(as_uuid=True), ForeignKey('media_assets.id'), nullable=True)
     review = Column(String)
 
     vendor = relationship("Vendor", back_populates="vendor_details")

@@ -56,15 +56,136 @@ def vendor_details_delete(db:Session, vendor_id_details: UUID):
     else:
         return False
 
-def add_vendor_details(db:Session, vendor_id: UUID ,vendor_details_request:vendor_Schema.VendorDetailsCreateBase):
-    db_vendor_details = vendor_model.Vendor_Details(vendor_id_details=vendor_id,
-                                       description=vendor_details_request.description,
-                                       picture_url=vendor_details_request.picture_url,
-                                       review=vendor_details_request.review)
+def add_vendor_details(db: Session, vendor_id: UUID,
+                       vendor_details_request: vendor_Schema.VendorDetailsCreateBase):
+    db_vendor_details = vendor_model.Vendor_Details(
+        vendor_id_details=vendor_id,
+        description=vendor_details_request.description,
+        picture_asset_id=vendor_details_request.picture_asset_id,
+        review=vendor_details_request.review,
+    )
     db.add(db_vendor_details)
     db.commit()
     db.refresh(db_vendor_details)
     return db_vendor_details
+
+def upsert_own_vendor_details(
+    db: Session, user: User, payload: vendor_Schema.VendorDetailsUpdate
+) -> dict:
+    """
+    Create-or-update the current vendor's details. Only the fields the client
+    actually sent are touched (exclude_unset), so omitting a field leaves it
+    alone while explicitly sending null clears it.
+
+    Validates that picture_asset_id, if given, is a MediaAsset the CALLER owns
+    and that it's READY — otherwise a vendor could point their avatar at someone
+    else's asset, or at one that's still uploading.
+    """
+    vendor = db.query(Vendor).filter(Vendor.user_id == user.id).first()
+    if not vendor:
+        raise HTTPException(404, "No vendor for this user")
+
+    changes = payload.model_dump(exclude_unset=True)
+
+    # Validate the avatar asset: must exist, be owned by this user, and be READY.
+    if "picture_asset_id" in changes and changes["picture_asset_id"] is not None:
+        from app.models.media_model import MediaAsset, MediaStatus, MediaKind
+        asset = (
+            db.query(MediaAsset)
+            .filter(MediaAsset.id == changes["picture_asset_id"])
+            .first()
+        )
+        if asset is None or asset.owner_id != user.id:
+            # 404 not 403 — don't leak that the id exists.
+            raise HTTPException(404, "Asset not found")
+        if asset.status != MediaStatus.READY:
+            raise HTTPException(409, f"Asset not ready (status={asset.status.value})")
+        if asset.kind != MediaKind.IMAGE:
+            raise HTTPException(400, "Avatar must be an image")
+
+    details = (
+        db.query(vendor_model.Vendor_Details)
+        .filter(vendor_model.Vendor_Details.vendor_id_details == vendor.vendor_id)
+        .first()
+    )
+
+    if details is None:
+        details = vendor_model.Vendor_Details(
+            vendor_id_details=vendor.vendor_id,
+            description=changes.get("description"),
+            picture_asset_id=changes.get("picture_asset_id"),
+            review=changes.get("review"),
+        )
+        db.add(details)
+    else:
+        for key, value in changes.items():
+            setattr(details, key, value)
+
+    db.commit()
+    db.refresh(details)
+
+    return get_own_vendor_details(db, user)
+
+def _media_item_from_asset(asset) -> dict:
+    """
+    MediaAsset -> the same MediaItem shape the client already renders in
+    FullServiceResponse.media (so MediaImage works with no new DTO).
+    """
+    derivatives = asset.derivatives or {}
+    return {
+        "asset_id": asset.id,
+        "kind": asset.kind,
+        "status": asset.status,
+        "original_url": asset.original_url,
+        "thumbnail_url": derivatives.get("thumbnail"),
+        "width": asset.width,
+        "height": asset.height,
+        "duration_ms": asset.duration_ms,
+        "blurhash": asset.blurhash,
+    }
+
+
+def get_own_vendor_details(db: Session, user: User) -> dict:
+    """
+    The current vendor's own details: description, avatar (as a MediaItem so the
+    client's MediaImage renders it with blurhash + edge transforms), review.
+    Returns an empty shell (not 404) when no details row exists yet, so the
+    profile header renders with initials and can prompt for a bio/photo.
+    """
+    vendor = db.query(Vendor).filter(Vendor.user_id == user.id).first()
+    if not vendor:
+        raise HTTPException(404, "No vendor for this user")
+
+    details = (
+        db.query(vendor_model.Vendor_Details)
+        .filter(vendor_model.Vendor_Details.vendor_id_details == vendor.vendor_id)
+        .first()
+    )
+    if details is None:
+        return {
+            "vendor_id": vendor.vendor_id,
+            "description": None,
+            "picture_asset": None,
+            "review": None,
+        }
+
+    picture_asset = None
+    if details.picture_asset_id is not None:
+        from app.models.media_model import MediaAsset
+        asset = (
+            db.query(MediaAsset)
+            .filter(MediaAsset.id == details.picture_asset_id)
+            .first()
+        )
+        if asset is not None:
+            picture_asset = _media_item_from_asset(asset)
+
+    return {
+        "vendor_id": vendor.vendor_id,
+        "description": details.description,
+        "picture_asset": picture_asset,
+        "review": details.review,
+    }
 
 def get_all_vendors(db:Session):
     all_vendors = db.query(Vendor).all()

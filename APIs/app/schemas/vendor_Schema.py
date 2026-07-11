@@ -1,3 +1,4 @@
+from app.schemas.big_services_schema import MediaItem
 from pydantic import BaseModel, UUID4, Field
 from uuid import UUID
 from datetime import date, time
@@ -45,15 +46,34 @@ class VendorPublicProfile(BaseModel):
     rating_count: int = 0
 
 
+class VendorDetailsCreateBase(BaseModel):
+    description: str
+    picture_asset_id: UUID | None = None   # was: picture_url: str
+    review: str
+
+class VendorDetailsUpdate(BaseModel):
+    """
+    Partial update of the current vendor's details. Send only what changes.
+    Note the explicit-null problem: to CLEAR the avatar, send picture_asset_id=null
+    — but a field simply omitted also arrives as None. We use
+    model_fields_set (exclude_unset) in the module to tell them apart.
+    """
+    description: str | None = None
+    picture_asset_id: UUID | None = None
+    review: str | None = None
+
+class VendorDetailsOut(BaseModel):
+    """The current vendor's own details, avatar resolved to a full MediaItem."""
+    vendor_id: UUID
+    description: str | None = None
+    picture_asset: MediaItem | None = None   # import MediaItem from media_schema
+    review: str | None = None
+    
+
 class VendorServiceChip(BaseModel):
     """One distinct service this vendor offers — for the profile filter chips."""
     id: str
     name: Optional[str] = None
-
-class VendorDetailsCreateBase(BaseModel):
-    description : str
-    picture_url : str
-    review : str
 
 class Scheduling(BaseModel):
     days : List[str]

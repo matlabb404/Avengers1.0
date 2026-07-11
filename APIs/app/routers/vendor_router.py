@@ -72,6 +72,23 @@ async def get_gender_vendors(gender:Gender, db:Session=Depends(get_db)):
     gender_vendors = vendor_mdl.get_gender_vendors(gender, db)
     return gender_vendors
 
+@router.get("/vendor_details", tags=["Vendor"], response_model=vendor_Schema.VendorDetailsOut)
+async def get_vendor_details(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """The current vendor's own details (description, avatar, review)."""
+    return vendor_mdl.get_own_vendor_details(db, current_user)
+
+@router.put("/vendor_details", tags=["Vendor"], response_model=vendor_Schema.VendorDetailsOut)
+async def update_vendor_details(
+    payload: vendor_Schema.VendorDetailsUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create or update the current vendor's details (bio, avatar, review)."""
+    return vendor_mdl.upsert_own_vendor_details(db, current_user, payload)
+
 # ============ PUBLIC PROFILE ENDPOINTS ============
 # Parametrized routes. Sub-paths (/posts, /services) declared before the bare
 # /{vendor_id} by convention. All sit BELOW the literal routes above so e.g.
