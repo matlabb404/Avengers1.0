@@ -9,7 +9,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.schemas.big_services_schema import FullServiceResponse
+from app.schemas.big_services_schema import FullServiceResponse, MediaItem
 
 
 # ── Follow / unfollow responses ──────────────────────────────────────────────
@@ -155,3 +155,19 @@ class PostSocialResponse(BaseModel):
     vendor_id: UUID
     is_following: bool = False
     follower_count: int = 0
+
+class FollowedVendor(BaseModel):
+    """One vendor the current actor follows — for the profile's Following tab."""
+    vendor_id: UUID
+    business_name: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    city: str | None = None
+    country: str | None = None
+    picture_asset: MediaItem | None = None
+    followed_at: datetime
+
+
+class FollowingVendorsPage(BaseModel):
+    items: list[FollowedVendor] = []
+    next_cursor: str | None = None

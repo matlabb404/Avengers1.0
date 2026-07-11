@@ -33,6 +33,7 @@ from app.schemas.social_schema import (
     FollowResponse,
     FollowStatusResponse,
     FeedPage,
+    FollowingVendorsPage,
 )
 
 router = APIRouter(prefix="/following", tags=["following"])
@@ -66,7 +67,18 @@ def following_feed(
         db, current_user, limit=limit, cursor=cursor
     )
 
-
+@router.get("/vendors", tags=["following"], response_model=FollowingVendorsPage)
+async def following_vendors(
+    limit: int = Query(30, ge=1, le=50),
+    cursor: str | None = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    The vendors the current actor follows (the list, not their posts).
+    Per-user -> private, no-store.
+    """
+    return social_module.get_following_vendors(db, current_user, limit=limit, cursor=cursor)
 # ── Follow status (for the vendor profile view) ──────────────────────────────
 
 @router.get("/status/{vendor_id}", response_model=FollowStatusResponse)

@@ -1051,3 +1051,94 @@ def _comment_author_user_id(db: Session, c) -> Optional[UUID]:
         )
         return row[0] if row else None
     return None
+
+
+def get_following_vendors(
+    db: Session, user: User, limit: int = 30, cursor: Optional[str] = None
+) -> dict:
+    """
+    The vendors the current actor follows — the list itself, not their posts.
+    Powers the "Following" tab on the profile (a customer's "my vendors", and a
+    vendor's list of businesses they follow).
+
+    Keyset-paginated on Following.(created_at, id) — newest follow first.
+    Returns {items: [FollowedVendor...], next_cursor}.
+    """
+    actor = resolve_actor(db, user)
+
+    limit = max(1, min(limit, 50))
+
+    q = (
+        db.query(Following, Vendor)
+        .join(Vendor, Following.vendor_id == Vendor.vendor_id)
+        .filter(_follower_filter(actor))
+    )
+
+    if cursor:
+        c_ts, c_id = _decode_cursor(cursor)
+        q = q.filter(
+            or_(
+                Following.created_at < c_ts,
+                and_(Following.created_at == c_ts, Following.id < c_id),
+            )
+        )
+
+    q = q.order_by(Following.created_at.desc(), Following.id.desc()).limit(limit + 1)
+    rows = q.all()
+
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+
+    # Resolve each vendor's avatar (Vendor_Details.picture_asset_id -> MediaItem),
+    # batched so this isn't N+1.
+    from app.models.vendor_model import Vendor_Details
+    from app.models.media_model import MediaAsset
+
+    vendor_ids = [v.vendor_id for (_f, v) in rows]
+    avatars: dict = {}
+    if vendor_ids:
+        detail_rows = (
+            db.query(Vendor_Details.vendor_id_details, Vendor_Details.picture_asset_id)
+            .filter(Vendor_Details.vendor_id_details.in_(vendor_ids))
+            .all()
+        )
+        asset_ids = [aid for (_vid, aid) in detail_rows if aid is not None]
+        assets_by_id = {}
+        if asset_ids:
+            for asset in db.query(MediaAsset).filter(MediaAsset.id.in_(asset_ids)).all():
+                assets_by_id[asset.id] = asset
+        for vid, aid in detail_rows:
+            if aid is not None and aid in assets_by_id:
+                a = assets_by_id[aid]
+                derivatives = a.derivatives or {}
+                avatars[vid] = {
+                    "asset_id": a.id,
+                    "kind": a.kind,
+                    "status": a.status,
+                    "original_url": a.original_url,
+                    "thumbnail_url": derivatives.get("thumbnail"),
+                    "width": a.width,
+                    "height": a.height,
+                    "duration_ms": a.duration_ms,
+                    "blurhash": a.blurhash,
+                }
+
+    items = []
+    for follow, vendor in rows:
+        items.append({
+            "vendor_id": vendor.vendor_id,
+            "business_name": vendor.business_name,
+            "first_name": vendor.first_name,
+            "last_name": vendor.last_name,
+            "city": vendor.city,
+            "country": vendor.country,
+            "picture_asset": avatars.get(vendor.vendor_id),
+            "followed_at": follow.created_at,
+        })
+
+    next_cursor = None
+    if has_more and rows:
+        last_follow = rows[-1][0]
+        next_cursor = _encode_cursor(last_follow.created_at, last_follow.id)
+
+    return {"items": items, "next_cursor": next_cursor}
