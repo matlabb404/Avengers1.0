@@ -1,6 +1,6 @@
 from app.realtime import chat_ws
 from fastapi import FastAPI
-from app.routers import (apis_test_router, media_router, notification_router, posts_router, vendor_router,
+from app.routers import (apis_test_router, bookmark_router, media_router, notification_router, posts_router, social_router, vendor_router,
 account_router, customer_router, service_router, booking_router, payment_router,
 following_router, likes_router, discover_router, comments_router, explore_router, search_router,
 chat_router)
@@ -38,6 +38,8 @@ app.include_router(service_router.router)
 app.include_router(posts_router.router)
 app.include_router(media_router.router)
 app.include_router(likes_router.router)
+app.include_router(bookmark_router.router)
+app.include_router(social_router.router)
 app.include_router(comments_router.router)
 app.include_router(booking_router.router)
 app.include_router(payment_router.router)

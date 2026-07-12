@@ -12,10 +12,8 @@ Denormalized counters live on Service (services table) — see service_model.py:
 maintained atomically by the handlers.
 """
 import uuid
-from datetime import datetime, timezone
-
 from sqlalchemy import (
-    Column, String, Text, SmallInteger, DateTime, UUID, ForeignKey,
+    Column, text, Text, SmallInteger, DateTime, UUID, ForeignKey,
     CheckConstraint, UniqueConstraint, Index,
 )
 from sqlalchemy.orm import relationship
@@ -218,4 +216,43 @@ class Like(TimestampMixin, Base):
         Index("ix_likes_service", "service_id"),
         Index("ix_likes_liker_customer", "liker_customer_id"),
         Index("ix_likes_liker_vendor", "liker_vendor_id"),
+    )
+
+class Bookmark(TimestampMixin, Base):
+    """
+    A private "saved post". Same actor model as Like (customer XOR vendor), same
+    idempotency (unique per actor+post). Unlike Like, there's NO counter on the
+    Service row — bookmark counts are private, so nothing to denormalize.
+    """
+    __tablename__ = "bookmarks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    service_id = Column(
+        UUID(as_uuid=True), ForeignKey("services.id", ondelete="CASCADE"), nullable=False
+    )
+    bookmarker_customer_id = Column(
+        UUID(as_uuid=True), ForeignKey("customer.customer_id", ondelete="CASCADE"), nullable=True
+    )
+    bookmarker_vendor_id = Column(
+        UUID(as_uuid=True), ForeignKey("Vendor.vendor_id", ondelete="CASCADE"), nullable=True
+    )
+
+    service = relationship("Service")
+
+    __table_args__ = (
+        CheckConstraint(
+            "(bookmarker_customer_id IS NOT NULL AND bookmarker_vendor_id IS NULL) OR "
+            "(bookmarker_customer_id IS NULL AND bookmarker_vendor_id IS NOT NULL)",
+            name="ck_bookmark_one_actor",
+        ),
+        Index(
+            "uq_bookmark_customer", "service_id", "bookmarker_customer_id",
+            unique=True, postgresql_where=text("bookmarker_customer_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_bookmark_vendor", "service_id", "bookmarker_vendor_id",
+            unique=True, postgresql_where=text("bookmarker_vendor_id IS NOT NULL"),
+        ),
+        Index("idx_bookmarks_customer", "bookmarker_customer_id", "created_at"),
+        Index("idx_bookmarks_vendor", "bookmarker_vendor_id", "created_at"),
     )

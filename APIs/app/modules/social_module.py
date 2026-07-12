@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 from app.models.account_model import User
 from app.models.customer_model import customer
 from app.models.vendor_model import Vendor
-from app.models.social_model import Following
+from app.models.social_model import Bookmark, Following
 from app.modules import notification_module as nm
 from app.models.notification_model import NotificationType, NotificationTarget
 
@@ -1027,6 +1027,7 @@ def get_post_social(db: Session, user: User, service_id: UUID) -> dict:
         "rating_count": counts["rating_count"],
         "rating_avg": counts["rating_avg"],
         "is_liked": is_liked(db, user, service_id),
+        "is_bookmarked": is_bookmarked(db, user, service_id),
         "vendor_id": vendor_id,
         "is_following": is_following(db, user, vendor_id),
         "follower_count": follower_count(db, vendor_id),
@@ -1142,3 +1143,168 @@ def get_following_vendors(
         next_cursor = _encode_cursor(last_follow.created_at, last_follow.id)
 
     return {"items": items, "next_cursor": next_cursor}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# BOOKMARKS  (private "saved" list)
+# ═════════════════════════════════════════════════════════════════════════════
+#
+# Same actor model and idempotency as Likes, with one key difference: there is NO
+# denormalized counter on the Service row. A bookmark count is private — nobody
+# but the saver needs it — so there's nothing to keep in sync, which makes these
+# functions simpler than their Like counterparts.
+
+from app.models.social_model import Bookmark
+
+
+def bookmark_post(db: Session, user: User, service_id: UUID) -> dict:
+    """
+    Save a post. Idempotent: saving an already-saved post is a no-op.
+    No notification — saving is private; the post owner shouldn't be told.
+    """
+    from app.models.service_model import Service
+
+    actor = resolve_actor(db, user)
+
+    service = db.query(Service).filter(Service.id == service_id).first()
+    if not service:
+        raise HTTPException(404, "Post not found")
+
+    row = Bookmark(
+        service_id=service_id,
+        bookmarker_customer_id=actor.id if actor.is_customer else None,
+        bookmarker_vendor_id=actor.id if actor.is_vendor else None,
+    )
+    db.add(row)
+    try:
+        db.commit()
+    except IntegrityError:
+        # uq_bookmark_* violated -> already saved. Idempotent success.
+        db.rollback()
+        return {"bookmarked": True, "already": True}
+
+    return {"bookmarked": True, "already": False}
+
+
+def unbookmark_post(db: Session, user: User, service_id: UUID) -> dict:
+    """Unsave a post. Idempotent: unsaving what wasn't saved is a no-op."""
+    actor = resolve_actor(db, user)
+
+    deleted = (
+        db.query(Bookmark)
+        .filter(Bookmark.service_id == service_id, _bookmarker_filter(actor))
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return {"bookmarked": False, "removed": bool(deleted)}
+
+
+def is_bookmarked(db: Session, user: User, service_id: UUID) -> bool:
+    """Has the current actor saved this post? Per-user — never edge-cached."""
+    actor = resolve_actor(db, user)
+    row = (
+        db.query(Bookmark.id)
+        .filter(Bookmark.service_id == service_id, _bookmarker_filter(actor))
+        .first()
+    )
+    return row is not None
+
+
+def get_bookmarked_feed(
+    db: Session, user: User, limit: int = 20, cursor: Optional[str] = None
+) -> dict:
+    """
+    The current actor's saved posts, most-recently-saved first, keyset-paginated.
+
+    Note the cursor keys off Bookmark.(created_at, id) — the order is "when you
+    saved it", NOT when the post was created. That's the natural reading order
+    for a saved list.
+
+    Returns FeedPage shape so the client reuses the same grid as everywhere else.
+    """
+    from app.models.service_model import Service, Add_Service, price_history
+    from app.models.vendor_model import Vendor
+    from app.modules.big_services_module import _build_full_response
+
+    actor = resolve_actor(db, user)
+    limit = max(1, min(limit, 50))
+
+    q = (
+        db.query(Bookmark, Service, Vendor, price_history, Add_Service)
+        .join(Service, Bookmark.service_id == Service.id)
+        .join(Add_Service, Service.add_service_id == Add_Service.id)
+        .join(Vendor, Service.add_vendor_id == Vendor.vendor_id)
+        .join(price_history, Service.price_history == price_history.id)
+        .filter(_bookmarker_filter(actor))
+    )
+
+    if cursor:
+        c_ts, c_id = _decode_cursor(cursor)
+        q = q.filter(
+            or_(
+                Bookmark.created_at < c_ts,
+                and_(Bookmark.created_at == c_ts, Bookmark.id < c_id),
+            )
+        )
+
+    q = q.order_by(Bookmark.created_at.desc(), Bookmark.id.desc()).limit(limit + 1)
+    rows = q.all()
+
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+
+    items = []
+    for _bm, service, vendor, ph, add_service in rows:
+        post = _build_full_response(db, service, vendor, ph, add_service)
+        items.append({"post": post, "counts": _counts_for(service)})
+
+    next_cursor = None
+    if has_more and rows:
+        last_bm = rows[-1][0]
+        next_cursor = _encode_cursor(last_bm.created_at, last_bm.id)
+
+    return {"items": items, "next_cursor": next_cursor}
+
+
+def social_flags(db: Session, user: User, service_ids: list[UUID]) -> dict:
+    """
+    Batch per-user flags for a page of posts: which are liked, which are saved.
+    ONE round trip, one query per flag type — the client merges these into the
+    cached, count-only post data to render filled hearts and bookmarks.
+
+    Replaces the old liked-only /likes/flags.
+    """
+    if not service_ids:
+        return {"liked_ids": [], "bookmarked_ids": []}
+
+    actor = resolve_actor(db, user)
+
+    liked = (
+        db.query(Like.service_id)
+        .filter(Like.service_id.in_(service_ids), _liker_filter(actor))
+        .all()
+    )
+
+    bookmarked = (
+        db.query(Bookmark.service_id)
+        .filter(Bookmark.service_id.in_(service_ids), _bookmarker_filter(actor))
+        .all()
+    )
+
+    return {
+        "liked_ids": [r[0] for r in liked],
+        "bookmarked_ids": [r[0] for r in bookmarked],
+    }
+
+
+def _bookmarker_filter(actor: Actor):
+    """Filter selecting `bookmarks` rows authored by this actor."""
+    if actor.is_customer:
+        return and_(
+            Bookmark.bookmarker_customer_id == actor.id,
+            Bookmark.bookmarker_vendor_id.is_(None),
+        )
+    return and_(
+        Bookmark.bookmarker_vendor_id == actor.id,
+        Bookmark.bookmarker_customer_id.is_(None),
+    )

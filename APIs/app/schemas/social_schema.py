@@ -171,3 +171,35 @@ class FollowedVendor(BaseModel):
 class FollowingVendorsPage(BaseModel):
     items: list[FollowedVendor] = []
     next_cursor: str | None = None
+
+class BookmarkResponse(BaseModel):
+    bookmarked: bool
+    already: bool = False
+    removed: bool = False
+
+
+class SocialFlagsRequest(BaseModel):
+    """Ask which of these posts the current actor has liked and/or saved."""
+    service_ids: list[UUID] = []
+
+
+class SocialFlagsResponse(BaseModel):
+    """The subsets of the requested ids that are liked / bookmarked."""
+    liked_ids: list[UUID] = []
+    bookmarked_ids: list[UUID] = []
+
+class BookmarkResponse(BaseModel):
+    bookmarked: bool
+    already: bool = False
+    removed: bool = False
+
+
+class SocialFlagsRequest(BaseModel):
+    """The post ids on the current page — ask which are liked / saved."""
+    service_ids: list[UUID] = []
+
+
+class SocialFlagsResponse(BaseModel):
+    """The subsets of the requested ids that are liked / bookmarked."""
+    liked_ids: list[UUID] = []
+    bookmarked_ids: list[UUID] = []
