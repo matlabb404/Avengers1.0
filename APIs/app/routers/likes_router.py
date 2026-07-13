@@ -1,5 +1,4 @@
 from uuid import UUID
-from warnings import deprecated
 
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
@@ -32,8 +31,8 @@ class LikeStatusResponse(BaseModel):
 
 
 # ── Batch flags (literal path, declared first) ───────────────────────────────
-@deprecated("superseded by POST /social/flags, which returns liked_ids AND bookmarked_ids in one call.")
-@router.post("/flags", response_model=LikedFlagsResponse)
+@router.post("/flags", response_model=LikedFlagsResponse, deprecated=True)
+# @deprecated("superseded by POST /social/flags, which returns liked_ids AND bookmarked_ids in one call.")
 def liked_flags(
     req: LikedFlagsRequest,
     response: Response,
