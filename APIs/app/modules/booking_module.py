@@ -168,7 +168,7 @@ def get_booking_detail(db: Session, booking_id_request: str, user_id_request: st
         "service_name": service_name,
         "price_minor_at_booking": booking.price_minor_at_booking,
         "currency_at_booking": booking.currency_at_booking.value,
-        "booking_time": booking.time_date,
+        "time_date": booking.time_date,
         "notes": booking.notes or "",
         "status": booking.status.value if booking.status else None,
         "payment_status": booking.payment_status.value if booking.payment_status else None,
