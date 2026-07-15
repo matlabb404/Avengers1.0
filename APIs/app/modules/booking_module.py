@@ -184,6 +184,8 @@ def get_all_booking_by_user(db: Session, user_id: int):
     results = (
         db.query(
             Booking.booking_id,
+            Booking.service_id,                # ADD — for rebook
+            Service.add_vendor_id,  
             Booking.time_date,
             Booking.notes,
             Booking.status,
@@ -199,12 +201,15 @@ def get_all_booking_by_user(db: Session, user_id: int):
         .join(Add_Service, Service.add_service_id == Add_Service.id)
         .join(Vendor, Service.add_vendor_id == Vendor.vendor_id)
         .filter(Booking.user_id == user_id)
+        .order_by(Booking.time_date.desc()) 
         .all()
     )
 
     return [
         {
             "booking_id": str(r.booking_id),
+            "service_id": str(r.service_id),           
+            "vendor_id": str(r.add_vendor_id),
             "business_name": r.business_name,
             "service_name": r.service_name,
             "price": from_minor_units(r.price_minor_at_booking, r.currency_at_booking),
@@ -225,7 +230,7 @@ def cancel_booking(db:Session, user_id_request:str, booking_id_request : str):
     ).first()
 
     if not db_query:
-        return "Booking Not Found. Please Try Again"
+        return {"ok": False, "message": "Booking not found or cannot be cancelled"}
 
     slot = db.query(booking_model.Slot).filter(
         booking_model.Slot.service_id == db_query.service_id,
@@ -274,7 +279,7 @@ def cancel_booking(db:Session, user_id_request:str, booking_id_request : str):
     )
 
     db.commit()
-    return "Booking deleted Successfully"
+    return {"ok": True, "message": "Booking cancelled successfully"}
 
 def get_service_availability(db: Session, service_id: UUID, selected_date: date): #To get timeslots for that day, have to 
 
