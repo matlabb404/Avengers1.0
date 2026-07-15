@@ -222,6 +222,66 @@ def get_all_booking_by_user(db: Session, user_id: int):
         for r in results
     ]
 
+def get_vendor_bookings(db: Session, vendor_id: str):
+    """
+    Bookings FOR this vendor's services — i.e. bookings other people made with
+    them. The mirror of get_all_booking_by_user (which is bookings the caller
+    MADE). Includes the customer's name so the vendor knows who booked.
+    """
+    from app.models.customer_model import customer as CustomerModel
+
+    results = (
+        db.query(
+            Booking.booking_id,
+            Booking.service_id,
+            Service.add_vendor_id,
+            Booking.user_id,                 # the customer's user id
+            Booking.time_date,
+            Booking.notes,
+            Booking.status,
+            Booking.price_minor_at_booking,
+            Booking.currency_at_booking,
+            Booking.payment_status,
+            Add_Service.service_name,
+            Vendor.business_name,
+        )
+        .join(Service, Booking.service_id == Service.id)
+        .join(Add_Service, Service.add_service_id == Add_Service.id)
+        .join(Vendor, Service.add_vendor_id == Vendor.vendor_id)
+        .filter(Service.add_vendor_id == vendor_id)
+        .order_by(Booking.time_date.desc())
+        .all()
+    )
+
+    # Resolve customer names in one batch (avoid N+1).
+    user_ids = {r.user_id for r in results}
+    names = {}
+    if user_ids:
+        rows = (
+            db.query(CustomerModel.user_id, CustomerModel.name)
+            .filter(CustomerModel.user_id.in_(user_ids))
+            .all()
+        )
+        names = {uid: name for uid, name in rows}
+
+    return [
+        {
+            "booking_id": str(r.booking_id),
+            "service_id": str(r.service_id),
+            "vendor_id": str(r.add_vendor_id),
+            "business_name": r.business_name,
+            "service_name": r.service_name,
+            "customer_name": names.get(r.user_id) or "Customer",   # who booked
+            "price": from_minor_units(r.price_minor_at_booking, r.currency_at_booking),
+            "currency": r.currency_at_booking.value,
+            "booking_date": r.time_date,
+            "notes": r.notes,
+            "status": r.status.value if r.status else None,
+            "payment_status": r.payment_status.value if r.payment_status else None,
+        }
+        for r in results
+    ]
+
 def cancel_booking(db:Session, user_id_request:str, booking_id_request : str):
     db_query = db.query(Booking).filter(
         Booking.booking_id == booking_id_request,

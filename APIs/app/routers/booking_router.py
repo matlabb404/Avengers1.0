@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, Query
+from app.models import vendor_model
+from fastapi import APIRouter, Depends, Query, HTTPException
 from uuid import UUID
 from typing import Annotated
 import app.modules.booking_module as booking_mdl
@@ -46,6 +47,18 @@ async def add_booking(
 async def get_booking_by_user(db:Session= Depends(get_db), current_user : User = Depends(get_current_user)):
     responce = booking_mdl.get_all_booking_by_user(db=db, user_id=current_user.id)
     return responce
+
+@router.get("/vendor_bookings", tags=["Booking"])
+async def get_bookings_for_vendor(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    vendor = db.query(vendor_model.Vendor).filter(
+        vendor_model.Vendor.user_id == current_user.id
+    ).first()
+    if not vendor:
+        raise HTTPException(403, "Not a vendor")
+    return booking_mdl.get_vendor_bookings(db, str(vendor.vendor_id))
 
 @router.get("/booking/{booking_id}", tags=["Booking"], response_model=booking_schema.BookingDetailResponse)
 async def get_one_booking(booking_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
