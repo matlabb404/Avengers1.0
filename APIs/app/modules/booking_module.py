@@ -128,19 +128,26 @@ def add_booking(db: Session, book: booking_schema.BookingCreate, user_id_request
         db.rollback()
         raise HTTPException(status_code=400, detail="Duplicate booking")
 
-def get_booking_detail(db: Session, booking_id_request: str, user_id_request: str):
-    """
-    One booking (scoped to the requesting user) as a rich detail:
-      { booking, service (FullServiceResponse), payment_reference }
-    """
-    booking = (
-        db.query(Booking)
-        .filter(
-            Booking.booking_id == booking_id_request,
-            Booking.user_id == user_id_request,
-        )
-        .first()
+def get_booking_detail(
+    db: Session,
+    booking_id_request: str,
+    user_id_request: str | None = None,
+    ignore_user: bool = False,
+):
+    query = db.query(Booking).filter(
+        Booking.booking_id == booking_id_request
     )
+
+    if not ignore_user:
+        query = query.filter(
+            Booking.user_id == user_id_request
+        )
+
+    booking = query.first()
+
+    if booking is None:
+        raise HTTPException(404, "Booking not found")
+    
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
 

@@ -68,6 +68,14 @@ async def get_one_booking(booking_id: str, db: Session = Depends(get_db), curren
         user_id_request=current_user.id,
     )
 
+@router.get("/booking/{booking_id}/vendor", tags=["Booking"], response_model=booking_schema.BookingDetailResponse)
+async def get_one_booking(booking_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return booking_mdl.get_booking_detail(
+        db=db,
+        booking_id_request=booking_id,
+        ignore_user=True,
+    )
+
 @router.delete("/delete_booking/{booking_id}", tags=["Booking"])
 async def delete_booking_by_user(
     booking_id: str,
