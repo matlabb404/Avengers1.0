@@ -26,4 +26,5 @@ blurhash-python
 websockets
 pyjwt 
 cryptography 
+postgis
 # subprocess
