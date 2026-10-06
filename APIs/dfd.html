@@ -1,0 +1,180 @@
+<style>
+.dfd { background:#0A0C12; padding:28px 16px 60px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; border-radius:12px; }
+.dfd-wrap { max-width:900px; margin:0 auto; }
+.dfd h1 { font-size:20px; font-weight:800; color:#F0F2FF; margin:0; }
+.dfd .lede { font-size:13px; color:#7B82A8; margin:4px 0 20px; line-height:1.5; }
+.dfd .toolbar { display:flex; gap:8px; margin-bottom:18px; }
+.dfd .tbtn { font-size:12px; font-weight:600; border-radius:8px; padding:6px 12px; cursor:pointer; }
+.dfd .tbtn.expand { color:#00E5C3; background:#00E5C314; border:1px solid #00E5C333; }
+.dfd .tbtn.collapse { color:#7B82A8; background:#7B82A814; border:1px solid #7B82A833; }
+.dfd .flow { background:#12141C; border:1px solid #23273A; border-radius:14px; margin-bottom:12px; overflow:hidden; transition:border-color .2s; }
+.dfd .flow.open { border-color:var(--flow-color-55); }
+.dfd .flow-btn { width:100%; display:flex; align-items:center; gap:12px; padding:16px 18px; background:transparent; border:none; cursor:pointer; text-align:left; color:inherit; }
+.dfd .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.dfd .flow-title { font-size:15px; font-weight:700; color:#F0F2FF; }
+.dfd .flow-sum { font-size:12px; color:#7B82A8; margin-top:2px; }
+.dfd .step-count { font-size:11px; color:#7B82A8; font-weight:600; margin-right:4px; }
+.dfd .chev { color:#7B82A8; font-size:18px; line-height:1; }
+.dfd .flow-body { padding:0 18px 18px; display:none; }
+.dfd .flow.open .flow-body { display:block; }
+.dfd .step { background:#161923; border:1px solid #23273A; border-radius:12px; padding:16px; margin-bottom:12px; }
+.dfd .step-label { font-size:14px; font-weight:600; color:#F0F2FF; margin-bottom:10px; }
+.dfd .chain { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+.dfd .chip { font-size:11px; font-weight:600; padding:3px 9px; border-radius:999px; white-space:nowrap; background:#7B82A822; color:#7B82A8; }
+.dfd .chip.last { background:var(--flow-color-22); color:var(--flow-color); }
+.dfd .chain-arrow { color:#4A5170; font-size:12px; line-height:1; }
+.dfd .payloads { display:flex; gap:12px; flex-wrap:wrap; }
+.dfd .payload { flex:1; min-width:260px; }
+.dfd .payload-hdr { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+.dfd .payload-hdr i { color:#7B82A8; font-size:13px; }
+.dfd .payload-hdr span { font-size:11px; font-weight:600; color:#7B82A8; text-transform:uppercase; letter-spacing:.5px; }
+.dfd pre { margin:0; padding:12px; background:#0A0C12; border:1px solid #23273A; border-radius:8px; font-size:12px; line-height:1.5; color:#D5D9F0; overflow-x:auto; font-family:'SF Mono',Menlo,monospace; }
+.dfd .note { margin-top:10px; display:flex; gap:8px; align-items:flex-start; font-size:12px; color:#D9932B; background:#D9932B14; padding:8px 10px; border-radius:8px; }
+.dfd .note i { flex-shrink:0; margin-top:1px; font-size:13px; }
+.dfd .footer { margin-top:24px; padding:16px; background:#12141C; border:1px solid #23273A; border-radius:12px; font-size:12px; color:#7B82A8; line-height:1.6; }
+.dfd .footer strong { color:#F0F2FF; }
+.dfd .hdr-row { display:flex; align-items:center; gap:10px; margin-bottom:4px; }
+.dfd .hdr-row i { color:#00E5C3; font-size:20px; }
+</style>
+<h2 class="sr-only">Interactive collapsible diagram of the Avengers app's data flows — authentication, feed, booking, chat, and more — with request/response payloads.</h2>
+<div class="dfd">
+  <div class="dfd-wrap">
+    <div class="hdr-row"><i class="ti ti-database" aria-hidden="true"></i><h1>Patterns — data flow</h1></div>
+    <p class="lede">Screen → ViewModel → Service → Endpoint, with real request/response shapes pulled from the Android source. Every payload below matches what the iOS port sends and expects.</p>
+    <div class="toolbar">
+      <button class="tbtn expand" id="dfd-expand">Expand all</button>
+      <button class="tbtn collapse" id="dfd-collapse">Collapse all</button>
+    </div>
+    <div id="dfd-flows"></div>
+    <div class="footer"><strong>Reading this diagram:</strong> every request/response shown is the actual JSON on the wire (snake_case, matching the backend contract). The chain row shows exactly which screen → ViewModel → service → endpoint the call passes through, in both the Android original and the iOS port. Tell me which flow to change and I'll update the shapes here first, then the corresponding Swift files.</div>
+  </div>
+</div>
+<script>
+const flows = [
+  {id:'auth', name:'Auth & onboarding', color:'#00E5C3', summary:'Login, signup, session refresh, and role onboarding (customer or business).', steps:[
+    {label:'Login', chain:['LoginScreen','LoginViewModel','AuthService','POST /Account/token (form)'], request:'username=jane@doe.com&password=••••••••', response:'{\n  "access_token": "eyJhbGciOi...",\n  "refresh_token": "8f3c1e2a-...",\n  "token_type": "Bearer"\n}', note:'Form-encoded, not JSON — the one non-JSON POST in the app.'},
+    {label:'Check onboarding status', chain:['LoginViewModel','OnBoardingService','GET /Account/user/exists'], request:'(bearer token only, no body)', response:'{\n  "customer": false,\n  "vendor": false,\n  "bool": true   // isFirstLogin\n}', note:'Drives whether Login routes to Onboarding or straight to Main.'},
+    {label:'Register — customer', chain:['OnboardingScreen','OnBoardingViewModel','OnBoardingService','POST /customer/Add_customer'], request:'{\n  "name": "Jane Doe",\n  "address_1": "12 Ring Rd",\n  "address_2": null,\n  "city": "Accra",\n  "post_code": "GA-184",\n  "country": "Ghana",\n  "date_of_birth": "1996-04-02"\n}', response:'{\n  "customer": { "customer_id": "c_9f2...", "user_id": "u_11a...", "name": "Jane Doe" },\n  "user_email": "jane@doe.com"\n}'},
+    {label:'Register — business', chain:['OnboardingScreen','OnBoardingViewModel','OnBoardingService','POST /Vendor/Add_vendor'], request:'{\n  "first_name": "Kwame", "last_name": "Owusu",\n  "business_name": "Owusu Barbers",\n  "house_no": "14", "street": "Spintex Rd",\n  "city": "Accra", "state": "Greater Accra",\n  "postal_code": "GA-184", "country": "Ghana",\n  "gender": "male", "date_of_birth": "1990-01-15"\n}', response:'{\n  "vendor": { "vendor_id": "v_44b...", "business_name": "Owusu Barbers" },\n  "user_email": "kwame@owusubarbers.com"\n}'},
+    {label:'401 → refresh (any authenticated call)', chain:['APIClient (central)','POST /Account/refresh','retry original request once'], request:'{ "refresh_token": "8f3c1e2a-..." }', response:'{\n  "access_token": "eyJhbGciOi... (new)",\n  "refresh_token": "8f3c1e2a-... (new)",\n  "token_type": "Bearer"\n}', note:'Concurrent 401s coalesce into ONE refresh call. On failure → force logout.'}
+  ]},
+  {id:'feed', name:'Feed & social', color:'#6366F1', summary:'Discover / Following feeds, likes, bookmarks, follows, comments — funnel through the shared social state store.', steps:[
+    {label:'Load Discover feed', chain:['FeedViewModel','SocialService','GET /discover'], request:'?limit=20  (cursor omitted on first page)', response:'{\n  "items": [{\n    "post": { "service": {}, "vendor": {}, "add_service": {}, "media": [] },\n    "counts": { "like_count": 214, "comment_count": 12, "rating_count": 8, "rating_avg": 4.6 }\n  }],\n  "next_cursor": "eyJvZmZzZXQ..."\n}'},
+    {label:'Fetch like/bookmark flags for page', chain:['FeedViewModel','SocialService','POST /social/flags'], request:'{ "service_ids": ["svc_1", "svc_2", "svc_3"] }', response:'{\n  "liked_ids": ["svc_1"],\n  "bookmarked_ids": ["svc_2", "svc_3"]\n}', note:'One batched call per page — never per-card. Result merges into PostSocialStore.'},
+    {label:'Like / unlike (optimistic)', chain:['SmallPostCard','PostSocialStore.toggleLike()','POST / DELETE /likes/{serviceId}'], request:'(no body — verb + path encode the action)', response:'{\n  "liked": true,\n  "like_count": 215,\n  "already": false,\n  "removed": false\n}', note:'UI flips immediately, then reconciles from this response. Rolls back on error.'},
+    {label:'Bookmark / unbookmark (optimistic)', chain:['SmallPostCard','PostSocialStore.toggleBookmark()','POST / DELETE /bookmarks/{serviceId}'], request:'(no body)', response:'{ "bookmarked": true, "already": false, "removed": false }'},
+    {label:'Follow / unfollow vendor', chain:['VendorProfileScreen','VendorProfileViewModel','POST / DELETE /following/{vendorId}'], request:'(no body)', response:'{ "following": true, "already": false, "removed": false }'},
+    {label:'Add comment', chain:['PostDetailViewModel','SocialService','POST /comments/{serviceId}'], request:'{\n  "body": "Booked in for Saturday, thank you!",\n  "stars": null,\n  "parent_id": null,\n  "booking_id": null\n}', response:'{\n  "id": "cmt_88a...",\n  "service_id": "svc_1",\n  "author": { "name": "Jane Doe", "kind": "customer", "id": "u_11a..." },\n  "body": "Booked in for Saturday, thank you!",\n  "created_at": "2026-07-31T10:04:00Z",\n  "reply_count": 0\n}'}
+  ]},
+  {id:'vendor', name:'Vendor profile', color:'#8B5CF6', summary:'Public vendor page — profile, service chips, paginated posts.', steps:[
+    {label:'Load public profile', chain:['VendorProfileScreen','VendorProfileViewModel','GET /Vendor/{vendorId}'], request:'(path param only)', response:'{\n  "vendor_id": "v_44b...",\n  "business_name": "Owusu Barbers",\n  "city": "Accra", "country": "Ghana",\n  "follower_count": 1204,\n  "is_following": false,\n  "rating_avg": 4.7, "rating_count": 63\n}'},
+    {label:'Load vendor posts (filterable by service)', chain:['VendorProfileViewModel','SocialService','GET /Vendor/{vendorId}/posts'], request:'?service=svc_haircut&limit=20', response:'{ "items": [ /* same shape as Discover */ ], "next_cursor": null }'}
+  ]},
+  {id:'search', name:'Search & explore', color:'#00B8D9', summary:'Debounced search across vendors + services, and the trending masonry feed.', steps:[
+    {label:'Search (debounced 300ms)', chain:['SearchScreen','SearchViewModel','GET /search'], request:'?q=barber&type=all&limit=20', response:'{\n  "query": "barber",\n  "vendors": [{ "vendor_id": "v_44b...", "business_name": "Owusu Barbers", "score": 0.91 }],\n  "services": [{ "service_id": "svc_1", "service_name": "Fade & Line-up", "score": 0.88 }]\n}'},
+    {label:'Explore (masonry, tile-bucketed)', chain:['ExploreViewModel','SearchService','GET /explore'], request:'?limit=20', response:'{\n  "items": [\n    { "post": {}, "counts": {}, "tile": "FEATURE" },\n    { "post": {}, "counts": {}, "tile": "SMALL" }\n  ],\n  "next_cursor": "..."\n}', note:'tile bucket (SMALL/MEDIUM/TALL/FEATURE) drives layout height client-side.'}
+  ]},
+  {id:'booking', name:'Booking & payment', color:'#D9932B', summary:'The most stateful flow: availability → create booking → Paystack checkout → verify.', steps:[
+    {label:'Load closed dates (exceptions)', chain:['BookingCalendarViewModel','SchedulingService','GET /Vendor/{vendorId}/exceptions'], request:'?vendor_id=v_44b...&start_date=2026-07-31&end_date=2026-10-29&service_id=all', response:'[\n  { "id": "ex_1", "vendor_id": "v_44b...", "date": "2026-08-15", "is_closed": true, "reason": "Public holiday" }\n]'},
+    {label:'Load day availability', chain:['BookingCalendarViewModel','SchedulingService','GET /Vendor/{vendorId}/availability'], request:'?vendor_id=v_44b...&start_date=2026-08-02&end_date=2026-08-02&service_id=all', response:'[\n  { "date": "2026-08-02", "start_time": "09:00:00", "capacity": 2, "walk_in_available": false },\n  { "date": "2026-08-02", "start_time": "09:30:00", "capacity": 1, "walk_in_available": true }\n]'},
+    {label:'Create booking', chain:['BookingCalendarViewModel','BookingService','POST /Booking/add_booking'], request:'{\n  "service_id": "svc_1",\n  "notes": "First time — please call on arrival",\n  "booking_time": "2026-08-02T09:30:00Z"\n}', response:'{\n  "booking_id": "bk_772...",\n  "service_id": "svc_1",\n  "time_date": "2026-08-02T09:30:00Z",\n  "price_minor_at_booking": 15000,\n  "currency_at_booking": "GHS",\n  "payment_status": "pending",\n  "status": "confirmed"\n}'},
+    {label:'Initiate payment', chain:['BookingPaymentViewModel','PaymentsService','POST /Payment/initiate'], request:'Idempotency-Key: 6b1a...\n{ "booking_id": "bk_772...", "callback_url": "" }', response:'{\n  "payment_id": "pay_501...",\n  "reference": "PSK_ref_9f0e",\n  "authorization_url": "https://checkout.paystack.com/9f0e...",\n  "amount_minor": 15000,\n  "currency": "GHS",\n  "provider": "paystack"\n}', note:'authorization_url opens in SFSafariViewController. No deterministic callback — verify runs when the sheet is dismissed.'},
+    {label:'Verify payment', chain:['BookingPaymentViewModel','PaymentsService','GET /Payment/verify/{reference}'], request:'?reference=PSK_ref_9f0e', response:'{\n  "payment_id": "pay_501...",\n  "booking_id": "bk_772...",\n  "status": "succeeded",\n  "amount_minor": 15000,\n  "provider_transaction_id": "T123456789",\n  "paid_at": "2026-07-31T10:12:44Z"\n}'}
+  ]},
+  {id:'scheduling', name:'Scheduling (vendor admin)', color:'#2E9E6B', summary:'Weekly availability + date overrides. This is what the Booking flow reads.', steps:[
+    {label:'Save weekly schedule', chain:['SchedulingScreen','SchedulingViewModel','POST /Vendor/{vendorId}/schedule'], request:'{\n  "service_id": "all",\n  "days": ["mon","tue","wed","thu","fri","sat"],\n  "start_time": "09:00:00", "end_time": "18:00:00",\n  "capacity": 2, "interval_minutes": 30, "walk_in_available": false\n}', response:'{\n  "id": "sch_10...", "vendor_id": "v_44b...", "service_id": "all",\n  "days": ["mon","tue","wed","thu","fri","sat"],\n  "start_time": "09:00:00", "end_time": "18:00:00",\n  "capacity": 2, "interval_minutes": 30, "walk_in_available": false\n}'},
+    {label:'Add a closed-day exception', chain:['ScheduleExceptionsViewModel','SchedulingService','POST /Vendor/{vendorId}/exceptions'], request:'{ "service_id": "all", "date": "2026-08-15", "is_closed": true, "reason": "Public holiday" }', response:'{ "id": "ex_1", "vendor_id": "v_44b...", "date": "2026-08-15", "is_closed": true, "reason": "Public holiday" }'}
+  ]},
+  {id:'chat', name:'Chat (REST + WebSocket)', color:'#E2506B', summary:'One app-scoped WebSocket for live frames; REST for history and sending.', steps:[
+    {label:'Open a conversation', chain:['ChatThreadViewModel','ChatSocketService','POST /chat/conversations'], request:'{ "vendor_id": "v_44b..." }', response:'{\n  "id": "convo_301...",\n  "vendor_id": "v_44b...",\n  "counterparty_name": "Owusu Barbers",\n  "unread_count": 0,\n  "created_at": "2026-07-31T10:00:00Z"\n}'},
+    {label:'Load message history', chain:['ChatThreadViewModel','ChatSocketService','GET /chat/conversations/{id}/messages'], request:'?role=customer&limit=40', response:'{\n  "items": [{\n    "id": "msg_1", "conversation_id": "convo_301...", "sender_role": "customer",\n    "kind": "TEXT", "body": "Hey, are you open Saturday?", "created_at": "2026-07-31T09:58:00Z"\n  }],\n  "next_cursor": null\n}'},
+    {label:'Send message', chain:['ChatThreadViewModel','ChatSocketService','POST /chat/conversations/{id}/messages'], request:'{ "kind": "TEXT", "body": "Yes! See you at 9:30." }', response:'{\n  "id": "msg_2", "conversation_id": "convo_301...", "sender_role": "vendor",\n  "kind": "TEXT", "body": "Yes! See you at 9:30.", "created_at": "2026-07-31T10:01:00Z"\n}'},
+    {label:'WebSocket — inbound frame', chain:['wss://.../ws/chat','URLSessionWebSocketTask','AsyncStream<WsFrameDto>'], request:'(server-pushed, no client request)', response:'{\n  "type": "MESSAGE",\n  "conversation_id": "convo_301...",\n  "message": { "id": "msg_2", "sender_role": "vendor", "body": "Yes! See you at 9:30." }\n}', note:'30s PING keepalive; 1s→30s exponential-backoff reconnect on drop.'}
+  ]},
+  {id:'post', name:'Post creation & media upload', color:'#FF8A5C', summary:'S3-style multipart upload, then a form POST referencing the uploaded asset IDs.', steps:[
+    {label:'Create upload (per image)', chain:['PostViewModel','MediaUploadService','POST /media/uploads'], request:'{\n  "filename": "post_3F2A.jpg",\n  "content_type": "image/jpeg",\n  "size": 842104,\n  "width": 1080, "height": 1080\n}', response:'{\n  "asset_id": "asset_9c1...",\n  "object_key": "uploads/asset_9c1.jpg",\n  "upload_strategy": "single",\n  "upload_url": "https://s3.../presigned...",\n  "expires_in": 900\n}'},
+    {label:'PUT bytes to presigned URL', chain:['MediaUploadService','raw URLSession.upload()','S3 / storage'], request:'(binary JPEG body — bypasses APIClient, no bearer token)', response:'200 OK\nETag: "d41d8cd98f00b204e9800998ecf8427e"'},
+    {label:'Finalize upload', chain:['MediaUploadService','POST /media/uploads/{assetId}/finalize'], request:'{ "parts": null }  // single-strategy: no parts array', response:'{\n  "asset_id": "asset_9c1...", "kind": "image", "status": "ready",\n  "original_url": "https://cdn.../asset_9c1.jpg", "width": 1080, "height": 1080\n}'},
+    {label:'Create the post', chain:['PostViewModel','ServiceService','POST /posts/ (multipart form)'], request:'price=150\nprice_history=ph_20...\nadd_service_id=svc_1\ndescription=Fresh fades all week\nasset_ids=asset_9c1...', response:'{\n  "vendor_id": "v_44b...",\n  "response": { "service": {}, "vendor": {}, "add_service": {}, "media": [{ "asset_id": "asset_9c1..." }] }\n}', note:'Only asset IDs travel here — the bytes already went to storage in the step above.'}
+  ]},
+  {id:'notif', name:'Notifications', color:'#7B82A8', summary:'Feed of activity, unread count, and per-type push/in-app preferences.', steps:[
+    {label:'Load feed', chain:['NotificationsViewModel','NotificationsService','GET /notifications'], request:'?limit=20', response:'{\n  "items": [{\n    "id": "n_1", "type": "LIKE", "actor_name": "Jane Doe",\n    "target_type": "service", "target_id": "svc_1", "is_read": false,\n    "created_at": "2026-07-31T09:40:00Z"\n  }],\n  "next_cursor": null,\n  "unread_count": 4\n}'},
+    {label:'Update preferences (grouped)', chain:['NotificationPreferencesViewModel','NotificationsService','PUT /notifications/preferences'], request:'{\n  "prefs": {\n    "LIKE": { "push": true, "show": true },\n    "COMMENT": { "push": true, "show": true },\n    "BOOKING_NEW": { "push": true, "show": true }\n  }\n}', response:'{\n  "prefs": {\n    "LIKE": { "push": true, "show": true },\n    "COMMENT": { "push": true, "show": true },\n    "BOOKING_NEW": { "push": true, "show": true }\n  }\n}', note:'One group toggle (e.g. "Bookings") fans out to every type code in that group.'}
+  ]}
+];
+
+const openState = { auth: true };
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function chainHtml(chain, color) {
+  return chain.map((c, i) => {
+    const isLast = i === chain.length - 1;
+    const chip = `<span class="chip ${isLast ? 'last' : ''}">${esc(c)}</span>`;
+    const arrow = i < chain.length - 1 ? '<i class="ti ti-arrow-right chain-arrow" aria-hidden="true"></i>' : '';
+    return chip + arrow;
+  }).join('');
+}
+
+function stepHtml(step, color) {
+  const note = step.note ? `<div class="note"><i class="ti ti-bolt" aria-hidden="true"></i><span>${esc(step.note)}</span></div>` : '';
+  return `
+    <div class="step">
+      <div class="step-label">${esc(step.label)}</div>
+      <div class="chain">${chainHtml(step.chain, color)}</div>
+      <div class="payloads">
+        <div class="payload">
+          <div class="payload-hdr"><i class="ti ti-device-mobile" aria-hidden="true"></i><span>Request</span></div>
+          <pre>${esc(step.request)}</pre>
+        </div>
+        <div class="payload">
+          <div class="payload-hdr"><i class="ti ti-server" aria-hidden="true"></i><span>Response</span></div>
+          <pre>${esc(step.response)}</pre>
+        </div>
+      </div>
+      ${note}
+    </div>
+  `;
+}
+
+function flowHtml(flow) {
+  const isOpen = !!openState[flow.id];
+  const stepsHtml = flow.steps.map(s => stepHtml(s, flow.color)).join('');
+  const chev = isOpen ? 'ti-chevron-down' : 'ti-chevron-right';
+  return `
+    <div class="flow ${isOpen ? 'open' : ''}" data-id="${flow.id}" style="--flow-color:${flow.color};--flow-color-22:${flow.color}22;--flow-color-55:${flow.color}55">
+      <button class="flow-btn" data-toggle="${flow.id}">
+        <div class="dot" style="background:${flow.color}"></div>
+        <div style="flex:1">
+          <div class="flow-title">${esc(flow.name)}</div>
+          <div class="flow-sum">${esc(flow.summary)}</div>
+        </div>
+        <span class="step-count">${flow.steps.length} step${flow.steps.length > 1 ? 's' : ''}</span>
+        <i class="ti ${chev} chev" aria-hidden="true"></i>
+      </button>
+      <div class="flow-body">${stepsHtml}</div>
+    </div>
+  `;
+}
+
+function render() {
+  document.getElementById('dfd-flows').innerHTML = flows.map(flowHtml).join('');
+  document.querySelectorAll('[data-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-toggle');
+      openState[id] = !openState[id];
+      render();
+    });
+  });
+}
+
+document.getElementById('dfd-expand').addEventListener('click', () => {
+  flows.forEach(f => openState[f.id] = true);
+  render();
+});
+document.getElementById('dfd-collapse').addEventListener('click', () => {
+  Object.keys(openState).forEach(k => delete openState[k]);
+  render();
+});
+
+render();
+</script>

@@ -13,12 +13,6 @@ class Gender(str,Enum):
 class VendorCreateBase(BaseModel):
     first_name : str
     last_name : str 
-    house_no : str 
-    street : str 
-    city : str
-    state: str 
-    postal_code : str 
-    country: str
     gender: Gender
     date_of_birth: date
     business_name: str 

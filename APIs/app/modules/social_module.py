@@ -26,6 +26,8 @@ from sqlalchemy import and_, or_, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.models.location_model import VendorLocation
+
 from app.models.account_model import User
 from app.models.customer_model import customer
 from app.models.vendor_model import Vendor
@@ -505,7 +507,9 @@ def get_discover_feed(
 
     # Region filter (skip for None / "everywhere"). Case-insensitive match on city.
     if region and region.strip().lower() not in ("", "everywhere"):
-        q = q.filter(func.lower(Vendor.city) == region.strip().lower())
+        q = q.join(VendorLocation, VendorLocation.vendor_id == Vendor.vendor_id).filter(
+            func.lower(VendorLocation.city) == region.strip().lower()
+        )
 
     # Keyset pagination, same (created_at, id) scheme as the Following feed.
     if cursor:
@@ -1131,8 +1135,8 @@ def get_following_vendors(
             "business_name": vendor.business_name,
             "first_name": vendor.first_name,
             "last_name": vendor.last_name,
-            "city": vendor.city,
-            "country": vendor.country,
+            "city": vendor.location.city if vendor.location else None,
+            "country": vendor.location.country if vendor.location else None,
             "picture_asset": avatars.get(vendor.vendor_id),
             "followed_at": follow.created_at,
         })

@@ -87,8 +87,8 @@ def _build_full_response(db: Session, service, vendor, price_history, add_servic
             first_name=vendor.first_name,
             last_name=vendor.last_name,
             business_name=vendor.business_name,
-            city=vendor.city,
-            country=vendor.country,
+            city=vendor.location.city if vendor.location else None,
+            country=vendor.location.country if vendor.location else None,
         ),
         add_service=AddServiceInfo(
             id=add_service.id,

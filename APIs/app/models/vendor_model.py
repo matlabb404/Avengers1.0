@@ -14,31 +14,27 @@ class Vendor(TimestampMixin, Base):
     vendor_email = Column(String)
     first_name = Column(String)
     last_name = Column(String, nullable=False)
-    house_no= Column(String(50))
-    street = Column(String(100), nullable=False)
-    city = Column(String, nullable=False)
-    state = Column(String(20))
-    postal_code = Column(String(10), nullable=False)
-    country = Column(String)
     gender = Column(Enum(Gender), default=Gender.Male)
     date_of_birth = Column(Date)
     business_name = Column(String)
     phone_no = Column(String(50))
 
     # ── Search: weighted full-text vector (generated/STORED) ──────────────
-    # business_name (A) > first/last name (B) > city (C). plus trigram indexes
-    # on the raw text columns (declared in __table_args__) for typo tolerance.
+    # business_name (A) > first/last name (B). Address moved to vendor_location;
+    # city search is now a trigram match on vendor_location.city via a join.
     search_tsv = Column(
         TSVECTOR,
         Computed(
             "setweight(to_tsvector('simple', coalesce(business_name, '')), 'A') || "
             "setweight(to_tsvector('simple', coalesce(first_name, '')), 'B') || "
-            "setweight(to_tsvector('simple', coalesce(last_name, '')), 'B') || "
-            "setweight(to_tsvector('simple', coalesce(city, '')), 'C')",
+            "setweight(to_tsvector('simple', coalesce(last_name, '')), 'B')",
             persisted=True,
         ),
         nullable=True,
     )
+
+    # One-to-one: precise address + map coordinates live in vendor_location.
+    location = relationship("VendorLocation", uselist=False)
 
     vendor_details = relationship("Vendor_Details", uselist=False, back_populates="vendor")
 
@@ -72,16 +68,13 @@ class Vendor(TimestampMixin, Base):
     )
 
     # ── Search indexes ────────────────────────────────────────────────────
-    # GIN over the tsvector (full-text) + GIN trigram over the fuzzy text cols.
+    # GIN over the tsvector (full-text) + GIN trigram over business_name.
+    # The city trigram moved to vendor_location (see its migration).
     __table_args__ = (
         Index("vendor_search_tsv_gin", "search_tsv", postgresql_using="gin"),
         Index(
             "vendor_business_name_trgm", "business_name",
             postgresql_using="gin", postgresql_ops={"business_name": "gin_trgm_ops"},
-        ),
-        Index(
-            "vendor_city_trgm", "city",
-            postgresql_using="gin", postgresql_ops={"city": "gin_trgm_ops"},
         ),
     )
 

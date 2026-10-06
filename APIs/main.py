@@ -1,8 +1,9 @@
 from app.realtime import chat_ws
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from app.routers import (apis_test_router, bookmark_router, media_router, notification_router, posts_router, social_router, vendor_router,
-account_router, customer_router, service_router, booking_router, payment_router,
-following_router, likes_router, discover_router, comments_router, explore_router, search_router,
+from app.routers import (apis_test_router, bookmark_router, media_router, notification_router, posts_router, 
+social_router, vendor_router, account_router, customer_router, service_router, booking_router, payment_router,
+following_router, likes_router, discover_router, comments_router, explore_router, search_router, location_router,
 chat_router)
 from app.config.db.postgresql import Base, engine
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,7 +21,17 @@ with engine.begin() as conn:
     conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(root_path="/secret/test/avengers/test/backend/dev")
+@asynccontextmanager
+async def chat_ws_lifespan(app: FastAPI):
+    # startup
+    await chat_ws.start_pubsub()
+    try: # try/finally makes sure stop_pubsub() still runs if shutdown is triggered by an error.
+        yield
+    finally:
+        # shutdown
+        await chat_ws.stop_pubsub()
+
+app = FastAPI(root_path="/secret/test/avengers/test/backend/dev", lifespan=chat_ws_lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,6 +47,7 @@ app.include_router (vendor_router.router)
 app.include_router (customer_router.router)
 app.include_router(service_router.router)
 app.include_router(posts_router.router)
+app.include_router(location_router.router)
 app.include_router(media_router.router)
 app.include_router(likes_router.router)
 app.include_router(bookmark_router.router)
@@ -51,10 +63,10 @@ app.include_router(chat_router.router)
 app.include_router(chat_ws.router)
 app.include_router(notification_router.router)
 
-@app.on_event("startup")
-async def _start_chat_pubsub():
-    await chat_ws.start_pubsub()
+# @app.on_event("startup")
+# async def _start_chat_pubsub():
+#     await chat_ws.start_pubsub()
 
-@app.on_event("shutdown")
-async def _stop_chat_pubsub():
-    await chat_ws.stop_pubsub()
+# @app.on_event("shutdown")
+# async def _stop_chat_pubsub():
+#     await chat_ws.stop_pubsub()

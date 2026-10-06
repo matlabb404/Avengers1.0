@@ -31,18 +31,19 @@ def search_vendors(db: Session, q: str, limit: int = 20) -> list[dict]:
             v.business_name,
             v.first_name,
             v.last_name,
-            v.city,
-            v.country,
+            vl.city,
+            vl.country,
             GREATEST(
                 similarity(coalesce(v.business_name, ''), :q),
-                similarity(coalesce(v.city, ''), :q),
+                similarity(coalesce(vl.city, ''), :q),
                 ts_rank(v.search_tsv, plainto_tsquery('simple', :q))
             ) AS score
         FROM "Vendor" v
+        LEFT JOIN vendor_location vl ON vl.vendor_id = v.vendor_id
         WHERE
             v.search_tsv @@ plainto_tsquery('simple', :q)
             OR coalesce(v.business_name, '') % :q
-            OR coalesce(v.city, '') % :q
+            OR coalesce(vl.city, '') % :q
         ORDER BY score DESC, v.business_name ASC
         LIMIT :limit
         """
