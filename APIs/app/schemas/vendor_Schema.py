@@ -1,4 +1,5 @@
 from app.schemas.big_services_schema import MediaItem
+from app.schemas.location_schema import VendorLocationInfo
 from pydantic import BaseModel, UUID4, Field
 from uuid import UUID
 from datetime import date, time
@@ -34,6 +35,7 @@ class VendorPublicProfile(BaseModel):
     business_name: Optional[str] = None
     city: Optional[str] = None
     country: Optional[str] = None
+    location: Optional[VendorLocationInfo] = None
     follower_count: int = 0
     is_following: bool = False
     rating_avg: Optional[float] = None
@@ -118,6 +120,7 @@ class VendorPublicProfile(BaseModel):
     business_name: Optional[str] = None
     city: Optional[str] = None
     country: Optional[str] = None
+    location: Optional[VendorLocationInfo] = None
     follower_count: int = 0
     is_following: bool = False
 

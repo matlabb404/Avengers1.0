@@ -33,6 +33,12 @@ def search_vendors(db: Session, q: str, limit: int = 20) -> list[dict]:
             v.last_name,
             vl.city,
             vl.country,
+            vl.latitude,
+            vl.longitude,
+            vl.address_line1,
+            vl.region,
+            vl.digital_address,
+            vl.map_link,
             GREATEST(
                 similarity(coalesce(v.business_name, ''), :q),
                 similarity(coalesce(vl.city, ''), :q),
@@ -57,6 +63,19 @@ def search_vendors(db: Session, q: str, limit: int = 20) -> list[dict]:
             "last_name": r["last_name"],
             "city": r["city"],
             "country": r["country"],
+            "location": (
+                {
+                    "latitude": r["latitude"],
+                    "longitude": r["longitude"],
+                    "address_line1": r["address_line1"],
+                    "city": r["city"],
+                    "region": r["region"],
+                    "country": r["country"],
+                    "digital_address": r["digital_address"],
+                    "map_link": r["map_link"],
+                }
+                if r["latitude"] is not None else None
+            ),
             "score": float(r["score"] or 0.0),
         }
         for r in rows

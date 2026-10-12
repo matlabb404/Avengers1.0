@@ -10,6 +10,7 @@ from app.schemas.big_services_schema import (
     FullServiceResponse,
 )
 from app.models.vendor_model import Vendor
+from app.schemas.location_schema import VendorLocationInfo
 from app.models.media_model import MediaAsset, MediaStatus
 from fastapi import HTTPException
 from app.models.service_model import Service
@@ -89,6 +90,7 @@ def _build_full_response(db: Session, service, vendor, price_history, add_servic
             business_name=vendor.business_name,
             city=vendor.location.city if vendor.location else None,
             country=vendor.location.country if vendor.location else None,
+            location=VendorLocationInfo.model_validate(vendor.location) if vendor.location else None,
         ),
         add_service=AddServiceInfo(
             id=add_service.id,

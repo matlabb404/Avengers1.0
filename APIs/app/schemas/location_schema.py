@@ -94,3 +94,20 @@ class VendorPin(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class VendorLocationInfo(BaseModel):
+    """Embeddable location block for vendor-bearing responses (profile, feed,
+    search, followed). Present only when the vendor has pinned a location."""
+
+    latitude: float
+    longitude: float
+    address_line1: Optional[str] = None
+    city: Optional[str] = None
+    region: Optional[str] = None
+    country: Optional[str] = None
+    digital_address: Optional[str] = None
+    map_link: Optional[str] = None
+
+    class Config:
+        from_attributes = True

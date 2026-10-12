@@ -4,6 +4,7 @@ from typing import Optional
 
 from app.models.media_model import MediaKind, MediaStatus
 from app.models.payment_model import Currency
+from app.schemas.location_schema import VendorLocationInfo
 
 
 # ── Write ─────────────────────────────────────────────────────────────────────
@@ -51,6 +52,7 @@ class VendorInfo(BaseModel):
     business_name: Optional[str] = None
     city: Optional[str] = None
     country: Optional[str] = None
+    location: Optional[VendorLocationInfo] = None
 
 
 class AddServiceInfo(BaseModel):

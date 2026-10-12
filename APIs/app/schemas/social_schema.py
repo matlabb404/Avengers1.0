@@ -10,6 +10,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.schemas.big_services_schema import FullServiceResponse, MediaItem
+from app.schemas.location_schema import VendorLocationInfo
 
 
 # ── Follow / unfollow responses ──────────────────────────────────────────────
@@ -164,6 +165,7 @@ class FollowedVendor(BaseModel):
     last_name: str | None = None
     city: str | None = None
     country: str | None = None
+    location: VendorLocationInfo | None = None
     picture_asset: MediaItem | None = None
     followed_at: datetime
 

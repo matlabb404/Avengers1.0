@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.schemas.location_schema import VendorLocationInfo
+
 
 class VendorHit(BaseModel):
     vendor_id: UUID
@@ -11,6 +13,7 @@ class VendorHit(BaseModel):
     last_name: Optional[str] = None
     city: Optional[str] = None
     country: Optional[str] = None
+    location: Optional[VendorLocationInfo] = None
     score: float = 0.0
 
 

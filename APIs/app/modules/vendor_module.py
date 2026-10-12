@@ -10,6 +10,7 @@ from app.schemas import vendor_Schema
 from app.modules import social_module
 from app.models.vendor_model import Vendor
 from uuid import UUID
+from app.schemas.location_schema import VendorLocationInfo
 from fastapi import HTTPException
 
 def add_vendor(db:Session, vendor:vendor_Schema.VendorCreateBase, vendor_emaail : str, user_id_ :str ):
@@ -258,6 +259,7 @@ def get_vendor_profile(db: Session, user: User, vendor_id: UUID) -> dict:
         "last_name": vendor.last_name,
         "business_name": vendor.business_name,
         "city": vendor.location.city if vendor.location else None,
+        "location": VendorLocationInfo.model_validate(vendor.location) if vendor.location else None,
         "country": vendor.location.country if vendor.location else None,
         "follower_count": social_module.follower_count(db, vendor_id),
         "is_following": social_module.is_following(db, user, vendor_id),

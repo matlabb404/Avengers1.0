@@ -32,7 +32,7 @@ from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import and_, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 GRAVITY = 1.4
 
@@ -99,6 +99,7 @@ def get_explore_feed(
         db.query(Service, Vendor, price_history, Add_Service, score)
         .join(Add_Service, Service.add_service_id == Add_Service.id)
         .join(Vendor, Service.add_vendor_id == Vendor.vendor_id)
+        .options(joinedload(Vendor.location))
         .outerjoin(price_history, Service.price_history == price_history.id)
     )
 

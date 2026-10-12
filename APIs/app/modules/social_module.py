@@ -24,9 +24,10 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy import and_, or_, func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.location_model import VendorLocation
+from app.schemas.location_schema import VendorLocationInfo
 
 from app.models.account_model import User
 from app.models.customer_model import customer
@@ -281,6 +282,7 @@ def get_following_feed(
         db.query(Service, Vendor, price_history, Add_Service)
         .join(Add_Service, Service.add_service_id == Add_Service.id)
         .join(Vendor, Service.add_vendor_id == Vendor.vendor_id)
+        .options(joinedload(Vendor.location))
         .join(price_history, Service.price_history == price_history.id)
         .filter(Service.add_vendor_id.in_(followed))
     )
@@ -502,6 +504,7 @@ def get_discover_feed(
         db.query(Service, Vendor, price_history, Add_Service)
         .join(Add_Service, Service.add_service_id == Add_Service.id)
         .join(Vendor, Service.add_vendor_id == Vendor.vendor_id)
+        .options(joinedload(Vendor.location))
         .join(price_history, Service.price_history == price_history.id)
     )
 
@@ -1076,6 +1079,7 @@ def get_following_vendors(
     q = (
         db.query(Following, Vendor)
         .join(Vendor, Following.vendor_id == Vendor.vendor_id)
+        .options(joinedload(Vendor.location))
         .filter(_follower_filter(actor))
     )
 
@@ -1137,6 +1141,7 @@ def get_following_vendors(
             "last_name": vendor.last_name,
             "city": vendor.location.city if vendor.location else None,
             "country": vendor.location.country if vendor.location else None,
+            "location": VendorLocationInfo.model_validate(vendor.location) if vendor.location else None,
             "picture_asset": avatars.get(vendor.vendor_id),
             "followed_at": follow.created_at,
         })
@@ -1238,6 +1243,7 @@ def get_bookmarked_feed(
         .join(Service, Bookmark.service_id == Service.id)
         .join(Add_Service, Service.add_service_id == Add_Service.id)
         .join(Vendor, Service.add_vendor_id == Vendor.vendor_id)
+        .options(joinedload(Vendor.location))
         .join(price_history, Service.price_history == price_history.id)
         .filter(_bookmarker_filter(actor))
     )
