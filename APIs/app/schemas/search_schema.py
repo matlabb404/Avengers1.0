@@ -29,6 +29,7 @@ class ServiceHit(BaseModel):
     comment_count: int = 0
     rating_count: int = 0
     rating_avg: Optional[float] = None
+    location: Optional[VendorLocationInfo] = None
     score: float = 0.0
 
 

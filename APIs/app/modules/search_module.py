@@ -103,6 +103,14 @@ def search_services(db: Session, q: str, limit: int = 20) -> list[dict]:
             s.comment_count,
             s.rating_count,
             s.rating_sum,
+            vl.latitude     AS vl_latitude,
+            vl.longitude    AS vl_longitude,
+            vl.address_line1 AS vl_address_line1,
+            vl.city         AS vl_city,
+            vl.region       AS vl_region,
+            vl.country      AS vl_country,
+            vl.digital_address AS vl_digital_address,
+            vl.map_link     AS vl_map_link,
             GREATEST(
                 similarity(coalesce(a.service_name, ''), :q),
                 similarity(coalesce(s.description, ''), :q),
@@ -112,6 +120,7 @@ def search_services(db: Session, q: str, limit: int = 20) -> list[dict]:
         FROM services s
         JOIN add_service a ON s.add_service_id = a.id
         JOIN "Vendor" v ON s.add_vendor_id = v.vendor_id
+        LEFT JOIN vendor_location vl ON vl.vendor_id = s.add_vendor_id
         WHERE
             a.search_tsv @@ plainto_tsquery('simple', :q)
             OR s.search_tsv @@ plainto_tsquery('simple', :q)
@@ -141,6 +150,19 @@ def search_services(db: Session, q: str, limit: int = 20) -> list[dict]:
                 "comment_count": r["comment_count"] or 0,
                 "rating_count": rating_count,
                 "rating_avg": (round(rating_sum / rating_count, 2) if rating_count > 0 else None),
+                "location": (
+                    {
+                        "latitude": r["vl_latitude"],
+                        "longitude": r["vl_longitude"],
+                        "address_line1": r["vl_address_line1"],
+                        "city": r["vl_city"],
+                        "region": r["vl_region"],
+                        "country": r["vl_country"],
+                        "digital_address": r["vl_digital_address"],
+                        "map_link": r["vl_map_link"],
+                    }
+                    if r["vl_latitude"] is not None else None
+                ),
                 "score": float(r["score"] or 0.0),
             }
         )
