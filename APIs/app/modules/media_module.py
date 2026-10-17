@@ -100,6 +100,7 @@ def create_upload(db: Session, user: User, req: CreateUploadRequest) -> CreateUp
         kind=kind,
         content_type=req.content_type,
         declared_size=req.size,
+        filename=req.filename,
         status=MediaStatus.PENDING,
         width=req.width,
         height=req.height,

@@ -144,7 +144,9 @@ async def send_message(
         kind=payload.kind.value if hasattr(payload.kind, "value") else str(payload.kind),
         body=payload.body,
         asset_id=payload.asset_id,
+        asset_ids=payload.asset_ids,
         shared_service_id=payload.shared_service_id,
+        reply_to_message_id=payload.reply_to_message_id,
     )
     # Push live (no-op if recipient isn't connected). Imported here to avoid a
     # circular import at module load; the WS layer is file #4.

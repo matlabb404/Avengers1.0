@@ -76,14 +76,53 @@ class Message(TimestampMixin, Base):
     kind = Column(Enum(MessageKind), nullable=False, default=MessageKind.TEXT)
 
     body = Column(Text, nullable=True)                 # text / caption / note
+    # Legacy single-image pointer. Still written (set to the FIRST attachment) for
+    # backward compat; the authoritative attachment list is `attachments` below.
     asset_id = Column(UUID(as_uuid=True), ForeignKey("media_assets.id"), nullable=True)  # IMAGE
     shared_service_id = Column(UUID(as_uuid=True), ForeignKey("services.id"), nullable=True)  # POST_SHARE
+
+    # Message-to-message reply threading. Points at another message in the SAME
+    # conversation; the client echoes it back as `reply_to` and looks up the
+    # quoted message in the already-loaded page.
+    reply_to_message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id"), nullable=True)
 
     read_at = Column(DateTime, nullable=True)          # set when the other side reads it
 
     conversation = relationship("Conversation", back_populates="messages")
 
+    # Ordered attachments (0..N). Supports multiple photos and/or files per
+    # message — each row points at a media_assets row (image / video / file).
+    attachments = relationship(
+        "MessageAttachment",
+        back_populates="message",
+        cascade="all, delete-orphan",
+        order_by="MessageAttachment.position",
+    )
+
     __table_args__ = (
         # Thread pagination: messages in a conversation, newest-or-oldest first.
         Index("ix_message_conversation_created", "conversation_id", "created_at"),
+    )
+
+
+class MessageAttachment(TimestampMixin, Base):
+    """
+    One media attachment on a message, ordered by `position`. A message can carry
+    several (a photo stack, a bundle of files, or a mix). Each points at a
+    media_assets row, so kind/url/filename/size are resolved from there at read
+    time and always reflect the asset's current (ready) state.
+    """
+    __tablename__ = "message_attachments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    message_id = Column(
+        UUID(as_uuid=True), ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
+    )
+    asset_id = Column(UUID(as_uuid=True), ForeignKey("media_assets.id"), nullable=False)
+    position = Column(Integer, nullable=False, default=0, server_default="0")
+
+    message = relationship("Message", back_populates="attachments")
+
+    __table_args__ = (
+        Index("ix_message_attachment_message", "message_id", "position"),
     )

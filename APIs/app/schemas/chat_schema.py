@@ -19,15 +19,38 @@ class MessageKind(str, Enum):
 
 # ── Messages ──────────────────────────────────────────────────────────────────
 
+class AttachmentOut(BaseModel):
+    """One resolved attachment. `kind` is IMAGE | VIDEO | FILE. For files the
+       client shows `name` + `size`; for images it uses `url` directly."""
+    kind: str
+    url: Optional[str] = None
+    name: Optional[str] = None               # file display name (FILE only)
+    size: Optional[str] = None               # human-readable, e.g. "2.4 MB"
+
+
+class SharedPostOut(BaseModel):
+    """The post a message privately replies to, flattened for the boarding-pass
+       card so the client renders it without a second fetch."""
+    post_id: UUID
+    service: str
+    price_label: Optional[str] = None
+    duration_label: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+
+
 class MessageOut(BaseModel):
     id: UUID
     conversation_id: UUID
     sender_role: SenderRole
     kind: MessageKind
     body: Optional[str] = None
-    asset_id: Optional[UUID] = None
-    asset_url: Optional[str] = None          # resolved media URL for IMAGE
+    asset_id: Optional[UUID] = None          # legacy single-image pointer
+    asset_url: Optional[str] = None          # legacy resolved media URL for IMAGE
     shared_service_id: Optional[UUID] = None
+    # New, richer shapes the Compose client reads:
+    attachments: List[AttachmentOut] = Field(default_factory=list)
+    shared_post: Optional[SharedPostOut] = None
+    reply_to: Optional[UUID] = None          # id of the quoted message (same thread)
     read_at: Optional[datetime] = None
     created_at: datetime
 
@@ -41,13 +64,18 @@ class MessagePage(BaseModel):
 
 
 class SendMessageRequest(BaseModel):
-    """Send into a conversation. Exactly one content form should be populated:
-       TEXT -> body; IMAGE -> asset_id (+ optional body caption);
-       POST_SHARE -> shared_service_id (+ optional body note)."""
+    """Send into a conversation.
+       TEXT       -> body
+       IMAGE      -> asset_ids (one or more; images and/or files) + optional body caption
+       POST_SHARE -> shared_service_id (+ optional body note)
+       Any kind may set reply_to_message_id to quote another message in the thread.
+       `asset_id` (singular) is kept for older clients; it's folded into asset_ids."""
     kind: MessageKind = MessageKind.TEXT
     body: Optional[str] = None
-    asset_id: Optional[UUID] = None
+    asset_id: Optional[UUID] = None                      # legacy single-attachment
+    asset_ids: Optional[List[UUID]] = None               # ordered: photos and/or files
     shared_service_id: Optional[UUID] = None
+    reply_to_message_id: Optional[UUID] = None
 
 
 # ── Conversations (inbox) ─────────────────────────────────────────────────────

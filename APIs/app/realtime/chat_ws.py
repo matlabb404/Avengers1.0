@@ -297,19 +297,24 @@ async def publish_read(conversation_id: UUID, reader_role: str,
     await redis.publish(recipient, json.dumps(frame))
 
 
-def _jsonable(message: dict) -> dict:
-    """Stringify UUIDs/datetimes in a MessageOut dict for JSON transport."""
-    out = {}
-    for k, v in message.items():
-        if hasattr(v, "isoformat"):
-            out[k] = v.isoformat()
-        elif isinstance(v, UUID):
-            out[k] = str(v)
-        elif v is not None and v.__class__.__name__ in ("SenderRole", "MessageKind"):
-            out[k] = v.value
-        else:
-            out[k] = v
-    return out
+def _jsonable(value):
+    """Recursively make a MessageOut dict JSON-safe: stringify UUIDs/datetimes
+       and unwrap enums, descending into nested dicts/lists (attachments[],
+       shared_post{}) so a nested UUID like shared_post.post_id doesn't blow up
+       json.dumps."""
+    if isinstance(value, dict):
+        return {k: _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(v) for v in value]
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    if isinstance(value, UUID):
+        return str(value)
+    if value is not None and value.__class__.__name__ in (
+        "SenderRole", "MessageKind", "MediaKind", "MediaStatus", "Currency",
+    ):
+        return value.value
+    return value
 
 
 # ── WebSocket endpoint ────────────────────────────────────────────────────────

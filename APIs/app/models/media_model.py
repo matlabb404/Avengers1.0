@@ -66,6 +66,11 @@ class MediaAsset(TimestampMixin, Base):
     declared_size = Column(BigInteger, nullable=False)
     actual_size = Column(BigInteger)
 
+    # Original client filename (e.g. "invoice.pdf"). Only used for the object-key
+    # extension at presign today, but FILE chat attachments need it as the display
+    # name in the file stack, so we persist it. Cosmetic / untrusted.
+    filename = Column(String, nullable=True)
+
     status = Column(Enum(MediaStatus), nullable=False, default=MediaStatus.PENDING)
 
     # -- Multipart session (large/video uploads). Set while a multipart upload
