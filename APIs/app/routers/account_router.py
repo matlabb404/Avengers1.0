@@ -94,11 +94,16 @@ async def check_customer_exists( db: Session = Depends(get_db), current_user : U
     user_id = current_user.id
     customer = db.query(customer_model.customer).filter(customer_model.customer.user_id == user_id).first()
     vendor = db.query(vendor_model.Vendor).filter(vendor_model.Vendor.user_id == user_id).first()
-    ans = {"bool": False, "customer": False, "vendor": False}
+    # payout_ready gates onboarding: a business vendor isn't "done" until they
+    # have a Paystack subaccount (vendor.paystack_subaccount_code). The client
+    # routes them to the payout-setup step while this is False. Irrelevant for a
+    # customer-only user, so it stays False there and the client ignores it.
+    ans = {"bool": False, "customer": False, "vendor": False, "payout_ready": False}
     if customer:
         ans["customer"], ans["bool"] = True, True
     if vendor:
         ans["vendor"], ans["bool"] = True, True
+        ans["payout_ready"] = bool(vendor.paystack_subaccount_code)
     return ans
     
 

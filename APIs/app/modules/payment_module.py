@@ -45,6 +45,12 @@ from app.utils.money import from_minor_units
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
+# Server-side grace added on top of the user-facing hold (settings
+# BOOKING_PAYMENT_TIMEOUT_MINUTES, set to 10). The client counts down 10 minutes;
+# the sweep only releases a hold at 10 + grace, so a payment that lands right at
+# the buzzer with a slightly delayed webhook isn't killed mid-flight.
+_PAYMENT_GRACE_MINUTES = 2
+
 
 # ────────────────────────────────────────────────────────────
 # Initiate Payment
@@ -104,7 +110,20 @@ async def initiate_payment(
     service = db.query(Service).filter(Service.id == booking.service_id).first()
     if not service:
         raise HTTPException(500, "Booking references missing service")
-    
+
+    # Vendor must have a Paystack subaccount, or there's nowhere to settle their
+    # 90%. Onboarding already gates on this (payout_ready), so this is a belt-and-
+    # braces guard: a vendor without one simply cannot be charged against.
+    from app.models.vendor_model import Vendor
+    vendor = db.query(Vendor).filter(Vendor.vendor_id == service.add_vendor_id).first()
+    if not vendor:
+        raise HTTPException(500, "Service references missing vendor")
+    if not vendor.paystack_subaccount_code:
+        raise HTTPException(
+            409,
+            "This vendor hasn't finished payment setup yet, so bookings can't be paid.",
+        )
+
     # ────────────────────────────────────────────
     # 4. Build payment record
     # ────────────────────────────────────────────
@@ -168,6 +187,12 @@ async def initiate_payment(
             "user_id": str(user.id),
             "vendor_id": str(service.add_vendor_id),
         },
+        # Split payout: Paystack settles the vendor's 90% straight to their
+        # subaccount; bearer="account" means the platform absorbs the 1.95% fee
+        # out of its 10% (netting ~8.05%). The subaccount's percentage_charge
+        # (set to PLATFORM_FEE_PERCENTAGE at creation) governs the split.
+        subaccount=vendor.paystack_subaccount_code,
+        bearer="account",
     )
     
     if not result.success:
@@ -417,19 +442,38 @@ async def _mark_payment_succeeded(
     payment.provider_transaction_id = provider_transaction_id
     payment.provider_metadata = raw_response
     payment.failure_reason = None
-    
+
     # Update booking
     booking = db.query(Booking).filter(
         Booking.booking_id == payment.booking_id
     ).with_for_update().first()
-    
+
+    # B3: a payment can land AFTER the hold expired and the slot was released.
+    # If so, only reinstate the booking when the slot still has room; if it was
+    # resold in the meantime, keep it cancelled and refund the late payment.
+    refund_late = False
     if booking:
-        booking.payment_status = PaymentStatus.SUCCEEDED
-        booking.status = BookingStatus.CONFIRMED  # Q1=A
-    
+        if booking.status == BookingStatus.CANCELLED:
+            slot = db.query(Slot).filter(
+                Slot.service_id == booking.service_id,
+                Slot.time == booking.time_date,
+            ).with_for_update().first()
+            if slot is None or slot.booked < slot.capacity:
+                if slot is not None:
+                    slot.booked += 1  # re-acquire the still-free slot
+                booking.status = BookingStatus.CONFIRMED
+                booking.payment_status = PaymentStatus.SUCCEEDED
+            else:
+                # Slot gone — money was captured, so we must refund it.
+                booking.payment_status = PaymentStatus.SUCCEEDED
+                refund_late = True
+        else:
+            booking.payment_status = PaymentStatus.SUCCEEDED
+            booking.status = BookingStatus.CONFIRMED  # Q1=A
+
     db.commit()
-    
-    # Emit events (fire-and-forget — failures isolated by event bus)
+
+    # The payment itself succeeded (money captured) regardless of the slot outcome.
     await emit(Events.PAYMENT_SUCCEEDED, {
         "payment_id": str(payment.id),
         "booking_id": str(payment.booking_id),
@@ -438,8 +482,27 @@ async def _mark_payment_succeeded(
         "amount_minor": payment.amount_minor,
         "currency": payment.currency.value,
     })
-    
-    if booking:
+
+    if refund_late:
+        # Late payment on a resold slot: refund immediately. refund.processed will
+        # later flip the payment to REFUNDED via the webhook.
+        try:
+            provider = get_payment_provider(payment.provider)
+            await provider.refund_payment(
+                provider_transaction_id=payment.provider_transaction_id,
+                amount_minor=payment.amount_minor,
+                reason="Hold expired before payment; slot no longer available",
+            )
+        except Exception:
+            logger.exception("Auto-refund failed for late payment=%s", payment.id)
+        await emit(Events.BOOKING_EXPIRED, {
+            "booking_id": str(payment.booking_id),
+            "user_id": str(payment.user_id),
+            "reason": "paid_after_slot_resold_refunded",
+        })
+        return
+
+    if booking and booking.status == BookingStatus.CONFIRMED:
         await emit(Events.BOOKING_CONFIRMED, {
             "booking_id": str(booking.booking_id),
             "user_id": str(booking.user_id),
@@ -501,30 +564,42 @@ async def expire_unpaid_bookings(db: Session) -> dict:
     
     Now uses booking.created_at properly.
     """
-    timeout = timedelta(minutes=settings.BOOKING_PAYMENT_TIMEOUT_MINUTES)
+    timeout = timedelta(
+        minutes=settings.BOOKING_PAYMENT_TIMEOUT_MINUTES + _PAYMENT_GRACE_MINUTES
+    )
     cutoff = datetime.now(timezone.utc) - timeout
-    
+
     stale_bookings = db.query(Booking).filter(
         Booking.status.in_([BookingStatus.INIT, BookingStatus.PENDING]),
         Booking.payment_status != PaymentStatus.SUCCEEDED,
         Booking.created_at <= cutoff,   # ✅ Correct logic now
     ).all()
-    
+
     expired_count = 0
-    
+
     for booking in stale_bookings:
+        # B3: never release a hold that has a checkout still in flight — a webhook
+        # may yet confirm it. Leave it for a later sweep (or for the provider's own
+        # abandonment to fail it first).
+        in_flight = db.query(Payment).filter(
+            Payment.booking_id == booking.booking_id,
+            Payment.status == PaymentStatus.PROCESSING,
+        ).first()
+        if in_flight:
+            continue
+
         # Release slot
         slot = db.query(Slot).filter(
             Slot.service_id == booking.service_id,
             Slot.time == booking.time_date,
         ).with_for_update().first()
-        
+
         if slot and slot.booked > 0:
             slot.booked = max(slot.booked - 1, 0)
-        
+
         booking.status = BookingStatus.CANCELLED
         expired_count += 1
-        
+
         await emit(Events.BOOKING_EXPIRED, {
             "booking_id": str(booking.booking_id),
             "user_id": str(booking.user_id),

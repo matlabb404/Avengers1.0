@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from app.routers import (apis_test_router, bookmark_router, media_router, notification_router, posts_router, 
 social_router, vendor_router, account_router, customer_router, service_router, booking_router, payment_router,
 following_router, likes_router, discover_router, comments_router, explore_router, search_router, location_router,
-chat_router)
+chat_router, payout_router)
 from app.config.db.postgresql import Base, engine
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -62,6 +62,7 @@ app.include_router(search_router.router)
 app.include_router(chat_router.router)
 app.include_router(chat_ws.router)
 app.include_router(notification_router.router)
+app.include_router(payout_router.router)
 
 # @app.on_event("startup")
 # async def _start_chat_pubsub():
