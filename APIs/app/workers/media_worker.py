@@ -75,6 +75,23 @@ async def reap_orphans_job(ctx):
     await asyncio.to_thread(_reap_orphans_sync)
 
 
+async def expire_and_complete_bookings_job(ctx):
+    """
+    Release expired unpaid holds and auto-complete finished bookings.
+
+    Runs every couple of minutes so a 10-minute hold (+ grace) is freed promptly.
+    expire_unpaid_bookings / mark_completed_bookings are async (they emit events),
+    so we await them directly rather than offloading to a thread.
+    """
+    from app.modules import payment_module
+    db = SessionLocal()
+    try:
+        await payment_module.expire_unpaid_bookings(db)
+        await payment_module.mark_completed_bookings(db)
+    finally:
+        db.close()
+
+
 # ─────────────────────────────────────────────────────────────
 # Blocking implementations
 # ─────────────────────────────────────────────────────────────
@@ -262,7 +279,10 @@ def _deliver_push_sync(recipient_user_id, ntype, actor_name, preview,
 
 class WorkerSettings:
     functions = [process_media, fanout_new_service_task, deliver_push_task]
-    cron_jobs = [cron(reap_orphans_job, minute=set(range(0, 60, 10)))]  # every 10 min
+    cron_jobs = [
+        cron(reap_orphans_job, minute=set(range(0, 60, 10))),                  # every 10 min
+        cron(expire_and_complete_bookings_job, minute=set(range(0, 60, 2))),   # every 2 min
+    ]
     redis_settings = queue.redis_settings()
     max_jobs = 10
     job_timeout = 600   # seconds — generous for large video
