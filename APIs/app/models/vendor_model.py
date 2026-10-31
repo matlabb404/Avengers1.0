@@ -3,7 +3,7 @@ from sqlalchemy import Column, Integer, String, Boolean, Time, Date, Enum, UUID,
 from app.schemas.vendor_Schema import Gender
 from app.utils.mixins import TimestampMixin
 from sqlalchemy.dialects.postgresql import TSVECTOR
-import uuid 
+import uuid
 from sqlalchemy.orm import relationship
 
 class Vendor(TimestampMixin, Base):
@@ -18,6 +18,26 @@ class Vendor(TimestampMixin, Base):
     date_of_birth = Column(Date)
     business_name = Column(String)
     phone_no = Column(String(50))
+
+    # ── Paystack split-payout settlement ──────────────────────────────────
+    # A vendor is paid via a Paystack subaccount: on each booking payment,
+    # Paystack settles the vendor's share (90%) straight to this subaccount and
+    # the platform keeps the rest (10% less Paystack's 1.95% fee, bearer=account).
+    #
+    # paystack_subaccount_code is the code Paystack returns when we create the
+    # subaccount during onboarding (format "ACCT_xxxx"); it stays NULL until the
+    # vendor has supplied settlement details. Onboarding is gated on this being
+    # set, so a usable vendor always has one.
+    #
+    # payout_channel is kept a plain string ("BANK" | "MOMO") rather than a DB
+    # enum so adding a channel never needs a CREATE TYPE migration (same reasoning
+    # as NotificationType). settlement_bank is Paystack's bank/MoMo code, and
+    # settlement_account_name is the name Paystack resolves for display/confirmation.
+    paystack_subaccount_code = Column(String, nullable=True, index=True)
+    payout_channel = Column(String, nullable=True)            # "BANK" | "MOMO"
+    settlement_bank = Column(String, nullable=True)           # Paystack bank/MoMo code
+    settlement_account_number = Column(String, nullable=True) # bank account or MoMo number
+    settlement_account_name = Column(String, nullable=True)   # resolved by Paystack
 
     # ── Search: weighted full-text vector (generated/STORED) ──────────────
     # business_name (A) > first/last name (B). Address moved to vendor_location;
@@ -39,7 +59,7 @@ class Vendor(TimestampMixin, Base):
     vendor_details = relationship("Vendor_Details", uselist=False, back_populates="vendor")
 
     vendor_user = relationship("User", back_populates = "user_vendor")
-    
+
     schedule = relationship("Scheduling_", back_populates = "schedules")
 
     followers = relationship(
