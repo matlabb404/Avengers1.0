@@ -33,6 +33,11 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_new_password: str
+
 class CustomerExistsResponse(BaseModel):
     exists: bool
     user_id: str    
@@ -53,6 +58,21 @@ async def login_user(request: LoginRequest,db:Session=Depends(get_db)):
 async def reset_password(update_passworda: account_schema.UpdatePassword, db:Session=Depends(get_db), current_user : User = Depends(get_current_user)):
     responce = {register_module.reset_password(db=db, update_password=update_passworda, user_id=current_user.id)}
     return responce
+
+@router.post("/change_password", tags=["Account"])
+async def change_password(
+    body: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Settings change-password: verifies the current password before updating."""
+    return register_module.change_password(
+        db,
+        current_user.id,
+        body.current_password,
+        body.new_password,
+        body.confirm_new_password,
+    )
 
 @router.post("/token", tags=["Account"], response_model=account_schema.Token)
 async def get_token(request: Request, form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db:Session= Depends(get_db)):

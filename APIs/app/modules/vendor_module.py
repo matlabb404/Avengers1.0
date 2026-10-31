@@ -39,6 +39,21 @@ def vendor_update(db:Session, vendor_id: UUID, vendor_update:vendor_Schema.Vendo
     else:
         return 'Not_Found'
     
+def update_vendor_profile(db: Session, user: User, payload):
+    """
+    Partial edit of the current vendor's core profile (Settings). Only fields the
+    client actually sent are changed; the rest are left as-is.
+    """
+    vendor = db.query(Vendor).filter(Vendor.user_id == user.id).first()
+    if not vendor:
+        raise HTTPException(404, "No vendor profile for this user")
+    changes = payload.model_dump(exclude_unset=True)
+    for key, value in changes.items():
+        setattr(vendor, key, value)
+    db.commit()
+    db.refresh(vendor)
+    return vendor
+
 def vendor_delete(db:Session, vendor_id: UUID):
     db_vendor = db.query(vendor_model.Vendor).filter(vendor_model.Vendor.vendor_id == vendor_id).first()
     if db_vendor:
@@ -253,6 +268,29 @@ def get_vendor_profile(db: Session, user: User, vendor_id: UUID) -> dict:
     total_sum, total_count = (agg[0] or 0), (agg[1] or 0)
     rating_avg = round(total_sum / total_count, 2) if total_count > 0 else None
 
+    # Avatar: Vendor_Details.picture_asset_id -> MediaAsset -> MediaItem (reuses
+    # the same shape the own-details endpoint returns). None -> client shows initials.
+    picture_asset = None
+    details = (
+        db.query(vendor_model.Vendor_Details)
+        .filter(vendor_model.Vendor_Details.vendor_id_details == vendor_id)
+        .first()
+    )
+    if details and details.picture_asset_id:
+        from app.models.media_model import MediaAsset
+        asset = (
+            db.query(MediaAsset)
+            .filter(MediaAsset.id == details.picture_asset_id)
+            .first()
+        )
+        if asset is not None:
+            picture_asset = _media_item_from_asset(asset)
+
+    # Public contact: phone on the Vendor row, email from the linked User.
+    email = None
+    if vendor.user_id is not None:
+        email = db.query(User.email).filter(User.id == vendor.user_id).scalar()
+
     return {
         "vendor_id": vendor.vendor_id,
         "first_name": vendor.first_name,
@@ -261,6 +299,9 @@ def get_vendor_profile(db: Session, user: User, vendor_id: UUID) -> dict:
         "city": vendor.location.city if vendor.location else None,
         "location": VendorLocationInfo.model_validate(vendor.location) if vendor.location else None,
         "country": vendor.location.country if vendor.location else None,
+        "picture_asset": picture_asset,
+        "phone": vendor.phone_no,
+        "email": vendor.vendor_email or email,
         "follower_count": social_module.follower_count(db, vendor_id),
         "is_following": social_module.is_following(db, user, vendor_id),
         "rating_avg": rating_avg,

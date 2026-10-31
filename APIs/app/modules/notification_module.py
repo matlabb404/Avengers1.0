@@ -36,6 +36,19 @@ from app.schemas.notification_schema import (
 # Default when a user hasn't set a preference for a type.
 DEFAULT_PREF = {"push": True, "show": True}
 
+# Per-type default overrides. A type listed here uses its own default instead of
+# DEFAULT_PREF when the user hasn't set a preference. BOOKING_NEW is an unpaid
+# reservation hold (low-signal, most never pay), so it's push-off by default but
+# still shown in-feed — vendors can switch push on. Everything else stays push-on.
+TYPE_DEFAULTS = {
+    NotificationType.BOOKING_NEW: {"push": False, "show": True},
+}
+
+
+def _defaults_for(ntype: str) -> dict:
+    """The default {"push","show"} for a type (per-type override, else global)."""
+    return TYPE_DEFAULTS.get(ntype, DEFAULT_PREF)
+
 def _enqueue_push(*, recipient_user_id, ntype, actor_name, preview,
                   target_type, target_id) -> None:
     """
@@ -68,11 +81,12 @@ def _raw_prefs(db: Session, user_id: UUID) -> dict:
 
 
 def effective_pref(db: Session, user_id: UUID, ntype: str) -> dict:
-    """The resolved {"push","show"} for one type, defaults filled."""
+    """The resolved {"push","show"} for one type, per-type defaults filled."""
+    d = _defaults_for(ntype)
     stored = _raw_prefs(db, user_id).get(ntype) or {}
     return {
-        "push": stored.get("push", DEFAULT_PREF["push"]),
-        "show": stored.get("show", DEFAULT_PREF["show"]),
+        "push": stored.get("push", d["push"]),
+        "show": stored.get("show", d["show"]),
     }
 
 
@@ -81,10 +95,11 @@ def get_preferences(db: Session, user_id: UUID) -> Dict[str, TypePref]:
     stored = _raw_prefs(db, user_id)
     out: Dict[str, TypePref] = {}
     for t in NotificationType.ALL:
+        d = _defaults_for(t)
         s = stored.get(t) or {}
         out[t] = TypePref(
-            push=s.get("push", DEFAULT_PREF["push"]),
-            show=s.get("show", DEFAULT_PREF["show"]),
+            push=s.get("push", d["push"]),
+            show=s.get("show", d["show"]),
         )
     return out
 
@@ -620,7 +635,7 @@ def fanout_new_service(
         if uid in muted:
             return False
         type_pref = (prefs_by_user.get(uid) or {}).get(ntype) or {}
-        return bool(type_pref.get("show", DEFAULT_PREF["show"]))
+        return bool(type_pref.get("show", _defaults_for(ntype)["show"]))
 
     # 5. Bulk insert.
     target_key = str(target_id)
@@ -652,7 +667,7 @@ def fanout_new_service(
         if uid in muted:
             return False
         type_pref = (prefs_by_user.get(uid) or {}).get(ntype) or {}
-        return bool(type_pref.get("push", DEFAULT_PREF["push"]))
+        return bool(type_pref.get("push", _defaults_for(ntype)["push"]))
 
     for uid in recipient_user_ids:
         if _push_for(uid):

@@ -13,10 +13,24 @@ class Gender(str,Enum):
 
 class VendorCreateBase(BaseModel):
     first_name : str
-    last_name : str 
+    last_name : str
     gender: Gender
     date_of_birth: date
-    business_name: str 
+    business_name: str
+
+class VendorProfileUpdate(BaseModel):
+    """
+    Partial edit of the current vendor's core profile (Settings). Send only what
+    changes; omitted fields are left untouched (module uses exclude_unset). Avatar
+    and bio are edited separately via /vendor_details; settlement via /payout.
+    """
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    business_name: Optional[str] = None
+    gender: Optional[Gender] = None
+    date_of_birth: Optional[date] = None
+    phone_no: Optional[str] = None
+    vendor_email: Optional[str] = None
  
 # ── Append to app/schemas/vendor_Schema.py ───────────────────────────────────
 # (Requires: from uuid import UUID; from typing import Optional, List;
@@ -27,7 +41,9 @@ class VendorPublicProfile(BaseModel):
     """
     Another vendor's public profile as seen by the current user.
     follower_count + rating_* are global; is_following is per-user (so responses
-    carrying it must not be edge-cached).
+    carrying it must not be edge-cached). picture_asset is the vendor's avatar as a
+    full MediaItem (null => the client renders initials). phone + email are the
+    public contact details.
     """
     vendor_id: UUID
     first_name: Optional[str] = None
@@ -36,10 +52,16 @@ class VendorPublicProfile(BaseModel):
     city: Optional[str] = None
     country: Optional[str] = None
     location: Optional[VendorLocationInfo] = None
+    picture_asset: Optional[MediaItem] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
     follower_count: int = 0
     is_following: bool = False
     rating_avg: Optional[float] = None
     rating_count: int = 0
+
+    class Config:
+        from_attributes = True
 
 
 class VendorDetailsCreateBase(BaseModel):
@@ -112,20 +134,6 @@ class ExceptionBase(BaseModel):
     capacity: Optional[int] = None
     walk_in_available: Optional[bool] = None
     reason: Optional[str] = None
-
-class VendorPublicProfile(BaseModel):
-    vendor_id: UUID
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    business_name: Optional[str] = None
-    city: Optional[str] = None
-    country: Optional[str] = None
-    location: Optional[VendorLocationInfo] = None
-    follower_count: int = 0
-    is_following: bool = False
-
-    class Config:
-        from_attributes = True
 
 class ExceptionCreate(ExceptionBase):
     pass

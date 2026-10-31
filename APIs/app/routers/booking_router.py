@@ -50,6 +50,9 @@ async def get_booking_by_user(db:Session= Depends(get_db), current_user : User =
 
 @router.get("/vendor_bookings", tags=["Booking"])
 async def get_bookings_for_vendor(
+    section: str = Query("upcoming", description="'upcoming' or 'past'"),
+    limit: int = Query(20, ge=1, le=50),
+    cursor: str | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -58,7 +61,9 @@ async def get_bookings_for_vendor(
     ).first()
     if not vendor:
         raise HTTPException(403, "Not a vendor")
-    return booking_mdl.get_vendor_bookings(db, str(vendor.vendor_id))
+    return booking_mdl.get_vendor_bookings(
+        db, str(vendor.vendor_id), section=section, limit=limit, cursor=cursor
+    )
 
 @router.get("/booking/{booking_id}", tags=["Booking"], response_model=booking_schema.BookingDetailResponse)
 async def get_one_booking(booking_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

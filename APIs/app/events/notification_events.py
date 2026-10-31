@@ -78,6 +78,46 @@ async def on_booking_confirmed(payload: dict):
     )
 
 
+@subscribe(Events.PAYMENT_SUCCEEDED)
+async def on_payment_succeeded(payload: dict):
+    """Payment captured -> tell the VENDOR they've been paid (BOOKING_PAID)."""
+    await asyncio.to_thread(
+        _notify_vendor_paid_sync,
+        vendor_id=_to_uuid(payload.get("vendor_id")),
+        booking_id=payload.get("booking_id"),
+    )
+
+
+def _notify_vendor_paid_sync(*, vendor_id, booking_id):
+    """
+    Resolve the vendor's owning user and write a BOOKING_PAID notification to them.
+    The PAYMENT_SUCCEEDED payload carries vendor_id (the Vendor), not its user, so
+    we resolve the owner here. Never raises into the bus.
+    """
+    db = SessionLocal()
+    try:
+        owner_id = nm.vendor_owner_user_id(db, vendor_id)
+        if owner_id is None:
+            logger.warning("vendor-paid: no owner for vendor_id=%s", vendor_id)
+            return
+        nm.notify(
+            db,
+            recipient_user_id=owner_id,
+            type=NotificationType.BOOKING_PAID,
+            actor_user_id=None,                  # system-generated
+            actor_name=None,
+            target_type=NotificationTarget.BOOKING,
+            target_id=str(booking_id),
+            preview="You've been paid for a booking",
+            vendor_id=vendor_id,                 # for per-vendor mute
+            commit=True,
+        )
+    except Exception:
+        logger.exception("vendor-paid notification failed for booking=%s", booking_id)
+    finally:
+        db.close()
+
+
 @subscribe(Events.BOOKING_COMPLETED)
 async def on_booking_completed(payload: dict):
     """Appointment ended -> completed. Tell the customer (also unlocks rating)."""
@@ -94,12 +134,19 @@ async def on_booking_completed(payload: dict):
 
 @subscribe(Events.BOOKING_EXPIRED)
 async def on_booking_expired(payload: dict):
-    """Unpaid timeout -> slot released. Tell the customer it lapsed."""
+    """
+    Unpaid timeout -> slot released, OR a payment landed after the slot was resold
+    and got auto-refunded. Tell the customer, with the right message for each.
+    """
+    if payload.get("reason") == "paid_after_slot_resold_refunded":
+        preview = "Your payment was refunded. That slot was taken before payment completed."
+    else:
+        preview = "Your booking expired. Payment wasn't completed in time."
     await asyncio.to_thread(
         _notify_sync,
         recipient_user_id=_to_uuid(payload.get("user_id")),
-        ntype=NotificationType.BOOKING_CANCELLED,   # expiry is a cancellation flavor
+        ntype=NotificationType.BOOKING_EXPIRED,
         booking_id=payload.get("booking_id"),
-        preview="Your booking expired — payment wasn't completed in time",
+        preview=preview,
         vendor_id=None,
     )

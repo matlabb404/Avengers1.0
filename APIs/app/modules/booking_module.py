@@ -229,65 +229,166 @@ def get_all_booking_by_user(db: Session, user_id: int):
         for r in results
     ]
 
-def get_vendor_bookings(db: Session, vendor_id: str):
-    """
-    Bookings FOR this vendor's services — i.e. bookings other people made with
-    them. The mirror of get_all_booking_by_user (which is bookings the caller
-    MADE). Includes the customer's name so the vendor knows who booked.
-    """
-    from app.models.customer_model import customer as CustomerModel
+def _vb_encode_cursor(dt, booking_id) -> str:
+    """Opaque keyset cursor over (time_date, booking_id)."""
+    import base64
+    raw = f"{dt.isoformat()}|{booking_id}"
+    return base64.urlsafe_b64encode(raw.encode()).decode()
 
-    results = (
-        db.query(
-            Booking.booking_id,
-            Booking.service_id,
-            Service.add_vendor_id,
-            Booking.user_id,                 # the customer's user id
-            Booking.time_date,
-            Booking.notes,
-            Booking.status,
-            Booking.price_minor_at_booking,
-            Booking.currency_at_booking,
-            Booking.payment_status,
-            Add_Service.service_name,
-            Vendor.business_name,
-        )
+
+def _vb_decode_cursor(cursor: str):
+    import base64
+    raw = base64.urlsafe_b64decode(cursor.encode()).decode()
+    ts, bid = raw.split("|", 1)
+    return datetime.fromisoformat(ts), bid
+
+
+def _vb_relative(dt, now) -> str | None:
+    """Compact human label: 'in 45m', 'in 3h', 'in 2d', '5h ago', '3d ago'."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    secs = (dt - now).total_seconds()
+    future = secs >= 0
+    secs = abs(secs)
+    if secs < 3600:
+        label = f"{max(1, int(secs // 60))}m"
+    elif secs < 86400:
+        label = f"{int(secs // 3600)}h"
+    else:
+        label = f"{int(secs // 86400)}d"
+    return f"in {label}" if future else f"{label} ago"
+
+
+def _vb_avatar_item(asset) -> dict | None:
+    """MediaAsset -> the MediaItem shape the client already renders, or None."""
+    if asset is None:
+        return None
+    derivatives = asset.derivatives or {}
+    return {
+        "asset_id": asset.id,
+        "kind": asset.kind,
+        "status": asset.status,
+        "original_url": asset.original_url,
+        "thumbnail_url": derivatives.get("thumbnail"),
+        "width": asset.width,
+        "height": asset.height,
+    }
+
+
+def get_vendor_bookings(
+    db: Session,
+    vendor_id: str,
+    *,
+    section: str = "upcoming",
+    limit: int = 20,
+    cursor: str | None = None,
+) -> dict:
+    """
+    Bookings FOR this vendor's services, split into two sections and keyset-paginated.
+
+      upcoming: CONFIRMED (paid) bookings whose time is still ahead, soonest first.
+      past:     CONFIRMED-but-elapsed + COMPLETED bookings, most recent first.
+
+    Expired holds and cancellations (CANCELLED) and unpaid transient holds
+    (INIT/PENDING) are deliberately excluded from both — the vendor only sees real,
+    paid bookings. Each row carries the customer (name/avatar/phone/email), the
+    service, time + a relative label, duration, the price and the vendor's payout
+    (price minus the platform commission), and payment/booking status + notes.
+    """
+    from sqlalchemy import and_, or_
+    from app.models.customer_model import customer as CustomerModel
+    from app.models.account_model import User
+    from app.models.media_model import MediaAsset
+    from app.config.settings import get_settings
+
+    section = (section or "upcoming").lower()
+    if section not in ("upcoming", "past"):
+        raise HTTPException(400, "section must be 'upcoming' or 'past'")
+    limit = max(1, min(limit, 50))
+    now = datetime.utcnow()  # naive UTC, matches the stored (naive) time_date column
+
+    q = (
+        db.query(Booking, Add_Service, Vendor, CustomerModel, User, MediaAsset)
         .join(Service, Booking.service_id == Service.id)
         .join(Add_Service, Service.add_service_id == Add_Service.id)
         .join(Vendor, Service.add_vendor_id == Vendor.vendor_id)
+        .outerjoin(CustomerModel, CustomerModel.user_id == Booking.user_id)
+        .outerjoin(User, User.id == Booking.user_id)
+        .outerjoin(MediaAsset, MediaAsset.id == CustomerModel.avatar_asset_id)
         .filter(Service.add_vendor_id == vendor_id)
-        .order_by(Booking.time_date.desc())
-        .all()
     )
 
-    # Resolve customer names in one batch (avoid N+1).
-    user_ids = {r.user_id for r in results}
-    names = {}
-    if user_ids:
-        rows = (
-            db.query(CustomerModel.user_id, CustomerModel.name)
-            .filter(CustomerModel.user_id.in_(user_ids))
-            .all()
+    if section == "upcoming":
+        q = q.filter(
+            Booking.status == BookingStatus.CONFIRMED,
+            Booking.time_date >= now,
         )
-        names = {uid: name for uid, name in rows}
+        if cursor:
+            c_ts, c_id = _vb_decode_cursor(cursor)
+            q = q.filter(
+                or_(
+                    Booking.time_date > c_ts,
+                    and_(Booking.time_date == c_ts, Booking.booking_id > c_id),
+                )
+            )
+        q = q.order_by(Booking.time_date.asc(), Booking.booking_id.asc())
+    else:  # past
+        q = q.filter(
+            or_(
+                and_(Booking.status == BookingStatus.CONFIRMED, Booking.time_date < now),
+                Booking.status == BookingStatus.COMPLETED,
+            )
+        )
+        if cursor:
+            c_ts, c_id = _vb_decode_cursor(cursor)
+            q = q.filter(
+                or_(
+                    Booking.time_date < c_ts,
+                    and_(Booking.time_date == c_ts, Booking.booking_id < c_id),
+                )
+            )
+        q = q.order_by(Booking.time_date.desc(), Booking.booking_id.desc())
 
-    return [
-        {
-            "booking_id": str(r.booking_id),
-            "service_id": str(r.service_id),
-            "vendor_id": str(r.add_vendor_id),
-            "business_name": r.business_name,
-            "service_name": r.service_name,
-            "customer_name": names.get(r.user_id) or "Customer",   # who booked
-            "price": from_minor_units(r.price_minor_at_booking, r.currency_at_booking),
-            "currency": r.currency_at_booking.value,
-            "booking_date": r.time_date,
-            "notes": r.notes,
-            "status": r.status.value if r.status else None,
-            "payment_status": r.payment_status.value if r.payment_status else None,
-        }
-        for r in results
-    ]
+    rows = q.limit(limit + 1).all()
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+
+    fee_pct = get_settings().PLATFORM_FEE_PERCENTAGE
+
+    items = []
+    for booking, add_service, vendor, cust, user, asset in rows:
+        price_minor = booking.price_minor_at_booking or 0
+        payout_minor = round(price_minor * (100 - fee_pct) / 100)
+        currency = booking.currency_at_booking
+        items.append({
+            "booking_id": str(booking.booking_id),
+            "service_id": str(booking.service_id),
+            "vendor_id": str(vendor.vendor_id),
+            "customer_name": (cust.name if cust and cust.name else "Customer"),
+            "customer_avatar": _vb_avatar_item(asset),
+            "customer_phone": (cust.phone if cust else None),
+            "customer_email": (user.email if user else None),
+            "business_name": vendor.business_name,
+            "service_name": add_service.service_name,
+            "booking_date": booking.time_date,
+            "when_relative": _vb_relative(booking.time_date, now),
+            "duration_minutes": add_service.interval_minutes,
+            "price": from_minor_units(price_minor, currency),
+            "payout": from_minor_units(payout_minor, currency),
+            "currency": currency.value,
+            "notes": booking.notes,
+            "status": booking.status.value if booking.status else None,
+            "payment_status": booking.payment_status.value if booking.payment_status else None,
+        })
+
+    next_cursor = None
+    if has_more and rows:
+        last_booking = rows[-1][0]
+        next_cursor = _vb_encode_cursor(last_booking.time_date, last_booking.booking_id)
+
+    return {"section": section, "items": items, "next_cursor": next_cursor}
 
 def cancel_booking(db:Session, user_id_request:str, booking_id_request : str):
     db_query = db.query(Booking).filter(

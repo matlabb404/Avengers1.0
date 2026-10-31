@@ -1,4 +1,3 @@
-
 from app.config.db.postgresql import Base
 from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, text, Date,DateTime, UUID, ForeignKey
 from sqlalchemy.orm import relationship
@@ -17,6 +16,14 @@ class customer(TimestampMixin, Base):
     post_code = Column(String(10), nullable=False)
     country = Column(String)
     date_of_birth = Column(Date)
+
+    # Contact + avatar.
+    # phone: shown to a vendor on the booking they received, and on the customer's
+    #   profile (email comes from the linked User). Nullable — older rows have none.
+    # avatar_asset_id: mirrors Vendor_Details.picture_asset_id — a READY, caller-owned
+    #   MediaAsset used as the customer's profile photo (NULL => render initials).
+    phone = Column(String(50), nullable=True)
+    avatar_asset_id = Column(UUID(as_uuid=True), ForeignKey('media_assets.id'), nullable=True)
 
 
 #relationship wit user

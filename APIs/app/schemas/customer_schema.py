@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import date, datetime
 from typing import Optional
+from uuid import UUID
 
 
 
@@ -15,10 +16,14 @@ class CustomerCreateBase(BaseModel):
     
     
 class CustomerUpdate(BaseModel):
-    name: Optional[str]
-    address_1: Optional[str] 
-    address_2: Optional[str] 
-    city: Optional[str] 
-    post_code: Optional[str] 
-    country: Optional[str] 
-    date_of_birth: Optional[date] 
+    # All optional with defaults so a partial update sends only what changes
+    # (the module uses exclude_unset, so an omitted field is left untouched).
+    name: Optional[str] = None
+    address_1: Optional[str] = None
+    address_2: Optional[str] = None
+    city: Optional[str] = None
+    post_code: Optional[str] = None
+    country: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    phone: Optional[str] = None
+    avatar_asset_id: Optional[UUID] = None   # a READY, caller-owned image asset

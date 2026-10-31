@@ -51,6 +51,15 @@ async def update_vendor(vendor_update: vendor_Schema.VendorCreateBase, db:Sessio
     response = vendor_mdl.vendor_update(db=db, vendor_id= vendor.vendor_id ,vendor_update=vendor_update)
     return response
 
+@router.put("/vendor_profile", tags=["Vendor"])
+async def update_vendor_profile(
+    payload: vendor_Schema.VendorProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Settings: partial edit of the current vendor's core profile fields."""
+    return vendor_mdl.update_vendor_profile(db, current_user, payload)
+
 @router.delete("/Delete_Vendor", tags=["Vendor"])
 async def delete_vendor(db:Session=Depends(get_db),current_user : User = Depends(get_current_user)):
     vendor = vendor_mdl.get_current_vendor( current_user.id, db=db)

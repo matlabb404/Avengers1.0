@@ -31,10 +31,8 @@ async def add_customer(customer: customer_schema.CustomerCreateBase, db:Session=
 
 @router.get("/get_customer", tags=["customer"])
 async def get_customer(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    customer_record = customer_modules.get_current_customer(current_user.id, db=db)
-    if not customer_record:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    return customer_record
+    # Returns a clean profile dict with phone + email + resolved avatar.
+    return customer_modules.get_customer_profile(db, current_user)
 
 @router.put("/update_customer", tags=["customer"])
 async def update_customer( updated_data: customer_schema.CustomerUpdate, db: Session = Depends(get_db), current_user : User = Depends(get_current_user)):

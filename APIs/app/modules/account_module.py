@@ -56,12 +56,40 @@ def reset_password(db:Session, update_password:UpdatePassword,  user_id : str):
     else:
         hashed_new_password = bcrypt.hashpw(update_password.new_password.encode('utf-8'), bcrypt.gensalt())
 
-    if db_user: 
+    if db_user:
         db_user.password = hashed_new_password.decode('utf-8')
         db.commit()
-        return "Password updated Successfully" 
+        return "Password updated Successfully"
     else:
         return "User with id does not exist"
+
+
+def change_password(db: Session, user_id, current_password: str,
+                    new_password: str, confirm_new_password: str):
+    """
+    Authenticated password change for Settings: verifies the CURRENT password
+    first (unlike reset_password, which doesn't). Raises HTTPException on any
+    failure so the client gets a proper status, not a 200 with an error string.
+    """
+    from fastapi import HTTPException
+
+    db_user = db.query(User).filter(User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(404, "User not found")
+    if not bcrypt.checkpw(current_password.encode("utf-8"), db_user.password.encode("utf-8")):
+        raise HTTPException(400, "Current password is incorrect")
+    if new_password != confirm_new_password:
+        raise HTTPException(400, "New passwords do not match")
+    if len(new_password) < 8:
+        raise HTTPException(400, "New password must be at least 8 characters")
+    if bcrypt.checkpw(new_password.encode("utf-8"), db_user.password.encode("utf-8")):
+        raise HTTPException(400, "New password must be different from the current one")
+
+    db_user.password = bcrypt.hashpw(
+        new_password.encode("utf-8"), bcrypt.gensalt()
+    ).decode("utf-8")
+    db.commit()
+    return {"detail": "Password changed successfully"}
     
 
 def user_login(email: str, password: str, db:Session):

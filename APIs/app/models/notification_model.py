@@ -18,16 +18,19 @@ class NotificationType:
     FOLLOW = "FOLLOW"
     MESSAGE = "MESSAGE"
     BOOKING = "BOOKING"              # generic / uncategorized booking event
-    BOOKING_NEW = "BOOKING_NEW"            # a customer booked a vendor's service
-    BOOKING_CONFIRMED = "BOOKING_CONFIRMED"  # vendor confirmed the booking
+    BOOKING_NEW = "BOOKING_NEW"              # a customer reserved a service (to vendor, at hold)
+    BOOKING_PAID = "BOOKING_PAID"            # payment received for a booking (to vendor)
+    BOOKING_CONFIRMED = "BOOKING_CONFIRMED"  # booking confirmed after payment (to customer)
     BOOKING_CANCELLED = "BOOKING_CANCELLED"  # a booking was cancelled
     BOOKING_COMPLETED = "BOOKING_COMPLETED"  # a booking was completed
+    BOOKING_EXPIRED = "BOOKING_EXPIRED"      # unpaid hold lapsed or late-refunded (to customer)
     NEW_SERVICE = "NEW_SERVICE"      # a followed vendor posted a new service
     BIG_SERVICE = "BIG_SERVICE"      # a followed vendor posted a "big" service
- 
+
     ALL = (
         LIKE, COMMENT, RATING, FOLLOW, MESSAGE,
-        BOOKING, BOOKING_NEW, BOOKING_CONFIRMED, BOOKING_CANCELLED, BOOKING_COMPLETED,
+        BOOKING, BOOKING_NEW, BOOKING_PAID, BOOKING_CONFIRMED, BOOKING_CANCELLED,
+        BOOKING_COMPLETED, BOOKING_EXPIRED,
         NEW_SERVICE, BIG_SERVICE,
     )
 
