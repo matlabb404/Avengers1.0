@@ -324,3 +324,37 @@ class PaystackProvider(PaymentProviderInterface):
         except Exception as e:
             logger.exception("Paystack create_subaccount error")
             return {"success": False, "error": str(e)}
+
+    async def update_subaccount(
+        self,
+        subaccount_code: str,
+        settlement_bank: str,
+        account_number: str,
+    ) -> dict:
+        """
+        Change an existing subaccount's settlement destination (bank/MoMo + number).
+        Paystack: PUT /subaccount/:code. percentage_charge is left as-is so the
+        platform's commission split is untouched.
+        """
+        url = f"{PAYSTACK_BASE_URL}/subaccount/{subaccount_code}"
+        body = {
+            "settlement_bank": settlement_bank,
+            "account_number": account_number,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.put(url, json=body, headers=self.headers)
+                data = response.json()
+            if not data.get("status"):
+                return {"success": False, "error": data.get("message", "Update subaccount failed"),
+                        "raw": data}
+            sub = data.get("data", {})
+            return {
+                "success": True,
+                "subaccount_code": sub.get("subaccount_code", subaccount_code),
+                "account_name": sub.get("account_name"),
+                "raw": data,
+            }
+        except Exception as e:
+            logger.exception("Paystack update_subaccount error")
+            return {"success": False, "error": str(e)}

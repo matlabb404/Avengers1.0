@@ -130,6 +130,63 @@ async def setup_subaccount(
     return payout_status(db, user)
 
 
+async def update_settlement(
+    db: Session,
+    user: User,
+    *,
+    channel: str,
+    settlement_bank: str,
+    account_number: str,
+) -> dict:
+    """
+    Change where an already-onboarded vendor's payouts settle. Re-resolves the name
+    server-side, updates the existing Paystack subaccount (not a new one), and
+    persists the new settlement details. If the vendor has no subaccount yet, this
+    falls back to creating one (setup_subaccount).
+    """
+    vendor = _vendor_for_user(db, user)
+
+    if not vendor.paystack_subaccount_code:
+        # Nothing to update yet — treat as first-time setup.
+        return await setup_subaccount(
+            db, user, channel=channel,
+            settlement_bank=settlement_bank, account_number=account_number,
+        )
+
+    channel = (channel or "").lower()
+    settlement_bank = (settlement_bank or "").strip()
+    account_number = (account_number or "").strip()
+    if channel not in _VALID_CHANNELS:
+        raise HTTPException(400, f"channel must be one of {_VALID_CHANNELS}")
+    if not settlement_bank or not account_number:
+        raise HTTPException(400, "settlement_bank and account_number are required")
+
+    provider = PaystackProvider()
+
+    resolved = await provider.resolve_account(account_number, settlement_bank)
+    if not resolved.get("success"):
+        raise HTTPException(422, f"Could not confirm account: {resolved.get('error', 'unresolved')}")
+    account_name = resolved.get("account_name")
+
+    updated = await provider.update_subaccount(
+        subaccount_code=vendor.paystack_subaccount_code,
+        settlement_bank=settlement_bank,
+        account_number=account_number,
+    )
+    if not updated.get("success"):
+        raise HTTPException(502, f"Paystack: {updated.get('error', 'could not update subaccount')}")
+
+    vendor.payout_channel = channel.upper()
+    vendor.settlement_bank = settlement_bank
+    vendor.settlement_account_number = account_number
+    vendor.settlement_account_name = account_name or updated.get("account_name")
+    db.commit()
+    db.refresh(vendor)
+
+    logger.info("Payout settlement updated for vendor=%s", vendor.vendor_id)
+    return payout_status(db, user)
+
+
 def payout_status(db: Session, user: User) -> dict:
     """
     The vendor's payout-onboarding state. ready=True means they can be paid and

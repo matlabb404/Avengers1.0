@@ -80,6 +80,24 @@ async def setup_payout(
     )
 
 
+@router.post("/update")
+async def update_payout(
+    body: SetupRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Change where an already-onboarded vendor's payouts settle."""
+    response.headers["Cache-Control"] = "private, no-store"
+    return await payout_module.update_settlement(
+        db,
+        current_user,
+        channel=body.channel,
+        settlement_bank=body.settlement_bank,
+        account_number=body.account_number,
+    )
+
+
 @router.get("/status")
 async def payout_status(
     response: Response,
