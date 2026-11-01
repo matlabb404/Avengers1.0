@@ -59,6 +59,7 @@ class VendorPublicProfile(BaseModel):
     is_following: bool = False
     rating_avg: Optional[float] = None
     rating_count: int = 0
+    post_count: int = 0
 
     class Config:
         from_attributes = True

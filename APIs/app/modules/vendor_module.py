@@ -268,6 +268,13 @@ def get_vendor_profile(db: Session, user: User, vendor_id: UUID) -> dict:
     total_sum, total_count = (agg[0] or 0), (agg[1] or 0)
     rating_avg = round(total_sum / total_count, 2) if total_count > 0 else None
 
+    # Number of posts (Service rows) this vendor has — shown in the profile stats.
+    post_count = (
+        db.query(_func.count(Service.id))
+        .filter(Service.add_vendor_id == vendor_id)
+        .scalar()
+    ) or 0
+
     # Avatar: Vendor_Details.picture_asset_id -> MediaAsset -> MediaItem (reuses
     # the same shape the own-details endpoint returns). None -> client shows initials.
     picture_asset = None
@@ -306,6 +313,7 @@ def get_vendor_profile(db: Session, user: User, vendor_id: UUID) -> dict:
         "is_following": social_module.is_following(db, user, vendor_id),
         "rating_avg": rating_avg,
         "rating_count": total_count,
+        "post_count": post_count,
     }
 
 
